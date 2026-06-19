@@ -1,0 +1,1280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Outfood — Painel de Entregas</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+  :root{--green:#2E7D32;--green-dk:#1B5E20;--orange:#E65100;--dark:#1F2933;--light:#EAF3EA;--gray:#5b6770;--border:#d9e1d9;--red:#b23a2e}
+  *{box-sizing:border-box}
+  body{font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;color:var(--dark);margin:0;background:#f4f7f4;line-height:1.45}
+  header{background:var(--green);color:#fff;padding:14px 20px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  header h1{margin:0;font-size:20px}
+  header .meta{font-size:13px;opacity:.92}
+  .wrap{max-width:1180px;margin:0 auto;padding:16px}
+  .card{background:#fff;border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+  h2{font-size:15px;color:var(--green-dk);margin:0 0 10px}
+  label{font-weight:600;font-size:12px;display:block;margin-bottom:4px;color:var(--gray)}
+  input,select{padding:8px;border:1px solid #bcc7bc;border-radius:7px;font-size:14px;font-family:inherit;width:100%}
+  button{cursor:pointer;border:none;border-radius:7px;padding:8px 13px;font-size:13px;font-weight:600}
+  button:disabled{cursor:not-allowed;opacity:.58}
+  .btn{background:var(--green);color:#fff}.btn:hover{background:var(--green-dk)}
+  .btn-s{background:#fff;color:var(--green);border:1px solid var(--green)}.btn-s:hover{background:var(--light)}
+  .btn-g{background:#eef2ee;color:var(--dark)}.btn-g:hover{background:#e2e8e2}
+  .btn-r{background:#fff;color:var(--red);border:1px solid #e3b7b1}.btn-r:hover{background:#fbeeec}
+  .grid{display:grid;gap:10px}
+  .form-grid{grid-template-columns:1.1fr .95fr 1.45fr .55fr 1.05fr .7fr .8fr auto;align-items:end}
+  @media(max-width:900px){.form-grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr))}}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  .cfg{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  .board{display:flex;gap:12px;overflow-x:auto;padding-bottom:6px}
+  .col{flex:0 0 280px;background:#fbfdfb;border:1px solid var(--border);border-radius:10px;display:flex;flex-direction:column;max-height:560px}
+  .col h3{margin:0;padding:10px 12px;font-size:14px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;gap:6px}
+  .col h3 .tag{font-size:11px;font-weight:600;color:#fff;background:var(--green);border-radius:20px;padding:2px 8px}
+  .col.unassigned h3 .tag{background:var(--gray)}
+  .status{font-size:11px;font-weight:700;border-radius:20px;padding:2px 8px;white-space:nowrap}
+  .status.store{background:var(--light);color:var(--green-dk)}
+  .status.route{background:#fff1df;color:var(--orange)}
+  .col .acts{display:flex;gap:5px;flex-wrap:wrap;padding:8px 10px;border-bottom:1px dashed var(--border)}
+  .col .acts button{padding:5px 8px;font-size:11px}
+  .cards{padding:8px;overflow-y:auto;flex:1}
+  .delivery{background:#fff;border:1px solid var(--border);border-left:4px solid var(--green);border-radius:8px;padding:8px 9px;margin-bottom:8px;font-size:13px}
+  .delivery.done{opacity:.55;border-left-color:var(--gray)}
+  .delivery.done .addr{text-decoration:line-through}
+  .delivery .top{display:flex;justify-content:space-between;gap:6px}
+  .delivery .num{font-weight:700;color:var(--green-dk)}
+  .delivery .addr{font-weight:600}
+  .delivery .sub{color:var(--gray);font-size:12px;margin-top:2px}
+  .delivery .ctl{display:flex;justify-content:space-between;align-items:center;margin-top:6px;gap:6px}
+  .delivery .ctl label{display:flex;align-items:center;gap:4px;font-weight:600;color:var(--dark);font-size:12px;margin:0}
+  .delivery select{padding:4px;font-size:11px;width:auto;flex:1}
+  .mini{background:none;border:none;color:var(--red);cursor:pointer;font-size:14px;padding:0 4px}
+  .links a{display:inline-block;margin:4px 6px 0 0;background:var(--green);color:#fff;text-decoration:none;padding:6px 10px;border-radius:6px;font-size:12px;font-weight:600}
+  .links a:hover{background:var(--green-dk)}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border:1px solid var(--border);padding:7px 9px;text-align:left}
+  th{background:var(--green);color:#fff;font-size:12px}
+  tr:nth-child(even) td{background:#f6faf6}
+  td.r,th.r{text-align:right}
+  .tot td{font-weight:700;background:var(--light)!important}
+  #prog{display:none;font-size:12px;color:var(--gray);margin-top:8px}
+  .bar{height:7px;background:#e3e9e3;border-radius:6px;overflow:hidden;margin-top:4px}.bar>i{display:block;height:100%;width:0;background:var(--orange)}
+  .notice{display:none;margin-top:8px;border-radius:7px;padding:8px 10px;font-size:12px;background:#fff8e8;color:#6f4300;border:1px solid #f0d49a}
+  .notice.err{background:#fff1ef;color:#8a241b;border-color:#efb5ad}
+  .empty{color:var(--gray);font-size:12px;text-align:center;padding:14px}
+  .pill{font-size:11px;background:var(--light);color:var(--green-dk);border-radius:20px;padding:2px 8px;font-weight:600}
+  .map-tools{display:grid;grid-template-columns:1fr 1fr 120px repeat(5,auto);gap:8px;align-items:end;margin-bottom:10px}
+  #radiusMap{height:380px;border:1px solid var(--border);border-radius:8px;background:#eef2ee;overflow:hidden}
+  .map-note{font-size:12px;color:var(--gray);margin-top:8px}
+  .map-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--gray)}
+  .map-legend span{display:inline-flex;align-items:center;gap:5px;background:#f7faf7;border:1px solid var(--border);border-radius:20px;padding:3px 8px}
+  .map-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}
+  .bag-icon{position:relative;width:28px;height:28px;border:3px solid var(--bag,#2E7D32);border-radius:7px 7px 8px 8px;background:#fff;box-shadow:0 2px 7px rgba(31,41,51,.32)}
+  .bag-icon:before{content:"";position:absolute;left:6px;top:-10px;width:10px;height:9px;border:3px solid var(--bag,#2E7D32);border-bottom:0;border-radius:10px 10px 0 0;background:transparent}
+  .bag-icon:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid var(--bag,#2E7D32)}
+  .bag-icon.assigned{background:var(--bag,#2E7D32)}
+  .bag-icon.assigned:before{background:#fff}
+  .bag-icon .bag-dot{position:absolute;left:50%;top:50%;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--bag,#2E7D32)}
+  .bag-icon.assigned .bag-dot{background:#fff}
+  @media(max-width:900px){.map-tools{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}#radiusMap{height:320px}}
+  /* ---------- IMPRESSÃO TÉRMICA ---------- */
+  #printArea{display:none}
+  @media print{
+    body *{visibility:hidden}
+    #printArea,#printArea *{visibility:visible}
+    #printArea{display:block;position:absolute;left:0;top:0;width:var(--pw,72mm);font-family:'Courier New',monospace;color:#000}
+    .no-print{display:none!important}
+  }
+  #printArea .pcenter{text-align:center}
+  #printArea .pbig{font-size:16px;font-weight:700}
+  #printArea .pline{border-top:1px dashed #000;margin:4px 0}
+  #printArea .pstop{margin:5px 0;font-size:13px}
+  #printArea .pnum{display:inline-block;border:1px solid #000;border-radius:3px;padding:0 5px;font-weight:700;margin-right:4px}
+  #printArea .pbox{float:right;border:1px solid #000;width:14px;height:14px}
+  #printArea table{font-size:12px}
+  #printArea th,#printArea td{border:1px solid #000;padding:2px 4px}
+</style>
+</head>
+<body>
+<header>
+  <div><h1>Outfood — Painel de Entregas</h1><div class="meta" id="hd"></div></div>
+  <div class="row no-print">
+    <button class="btn-s" onclick="exportCSV()">Exportar CSV</button>
+    <button class="btn-g" onclick="newDay()">Novo dia</button>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- CONFIG -->
+  <div class="card no-print">
+    <h2>Configuração</h2>
+    <div class="grid cfg">
+      <div><label>Ponto de partida (cozinha/loja)</label><input id="start" placeholder="Rua, nº, bairro, cidade" oninput="save()"></div>
+      <div><label>Bairros próximos</label><button class="btn-s" onclick="updateNearbyDistricts()">Atualizar bairros próximos</button></div>
+      <div><label>Cidade / UF padrão</label><input id="city" placeholder="Ex.: Rio de Janeiro - RJ" oninput="save()"></div>
+      <div><label>Raio de atendimento do restaurante (km)</label><input id="deliveryRadiusKm" type="number" min="1" step="1" value="20" title="Define quais bairros e ruas aparecem para cadastro de pedidos" oninput="save(); renderDistrictOptions(); renderStreetSuggestions();"></div>
+      <div><label>Taxa de entrega padrão (R$)</label><input id="defFee" type="number" step="0.50" value="3" oninput="save()"></div>
+      <div><label>Velocidade média (km/h)</label><input id="avgSpeed" type="number" min="5" step="1" value="22" oninput="save()"></div>
+      <div><label>Tempo por entrega (min)</label><input id="stopMin" type="number" min="0" step="1" value="4" oninput="save()"></div>
+      <div><label>Largura da impressora térmica</label>
+        <select id="pw" onchange="save()"><option value="80">80mm (padrão)</option><option value="58">58mm</option></select></div>
+      <div><label>Novo entregador</label>
+        <div class="row"><input id="newDrv" placeholder="Nome do motoboy" onkeydown="if(event.key==='Enter')addDriver()"><button class="btn" onclick="addDriver()">+ Add</button></div></div>
+    </div>
+  </div>
+
+  <!-- NOVO PEDIDO -->
+  <div class="card no-print">
+    <h2>Adicionar entrega</h2>
+    <div class="grid form-grid">
+      <div><label>Tipo</label><select id="fMode" onchange="toggleDeliveryModeFields()"><option value="store">Motoboy da loja</option><option value="platform">Entregador da plataforma</option></select></div>
+      <div><label>Cliente / Pedido</label><input id="fLabel" placeholder="Ex.: João #1234"></div>
+      <div><label>Rua</label><input id="fStreet" list="streetSuggestions" placeholder="Ex.: Rua General..." oninput="renderStreetSuggestions()" onkeydown="if(event.key==='Enter')addDelivery()"><datalist id="streetSuggestions"></datalist></div>
+      <div><label>Número</label><input id="fNumber" placeholder="100" onkeydown="if(event.key==='Enter')addDelivery()"></div>
+      <div><label>Bairro</label><select id="fDistrict" onchange="renderStreetSuggestions()"></select></div>
+      <div><label>Taxa (R$)</label><input id="fFee" type="number" step="0.50" placeholder="3,00"></div>
+      <div><label>Dinheiro (R$)</label><input id="fCash" type="number" step="0.50" placeholder="0"></div>
+      <div><button class="btn" onclick="addDelivery()">Adicionar</button></div>
+    </div>
+    <div style="font-size:12px;color:var(--gray);margin-top:8px">Use "Motoboy da loja" para pedidos que entram na fila e nas rotas. Use "Entregador da plataforma" quando a plataforma envia o entregador para retirar no restaurante; esse pedido não entra no mapa nem na otimização de rotas.</div>
+  </div>
+
+  <!-- BOARD -->
+  <div class="card">
+    <div class="row no-print" style="justify-content:space-between"><h2 style="margin:0">Fila e rotas por entregador</h2>
+      <div class="row"><button class="btn" onclick="assignQueue()">Distribuir fila para quem está na loja</button><div class="pill" id="boardInfo"></div></div></div>
+    <div class="board" id="board"></div>
+    <div id="prog" class="no-print"><span id="ptxt"></span><div class="bar"><i id="pbar"></i></div></div>
+    <div id="routeMsg" class="notice no-print"></div>
+    <div class="links no-print" id="links"></div>
+  </div>
+
+  <!-- MAPA POR RAIO -->
+  <div class="card no-print">
+    <h2>Mapa de raio para despacho</h2>
+    <div class="map-tools">
+      <div><label>Raio ativo</label><select id="radiusZone" onchange="selectRadiusZone(this.value)"></select></div>
+      <div><label>Motoboy para receber pedidos no raio</label><select id="radiusDriver" onchange="syncActiveRadiusFromControls()"></select></div>
+      <div><label>Raio da rota (km)</label><input id="radiusKm" type="number" min="0.5" step="0.5" value="3" oninput="setActiveRadiusSize(this.value)"><input id="radiusKmSlider" type="range" min="0.5" max="20" step="0.5" value="3" oninput="setActiveRadiusSize(this.value)"></div>
+      <button class="btn-s" onclick="createRadiusZone()">Criar raio</button>
+      <button class="btn-r" onclick="removeRadiusZone()">Remover raio</button>
+      <button class="btn-s" onclick="refreshRadiusMap()">Carregar pedidos</button>
+      <button class="btn-s" onclick="useStoreAsRadiusCenter()">Usar loja como centro</button>
+      <button class="btn" onclick="assignRadiusToDriver()">Atribuir pedidos no raio</button>
+    </div>
+    <div id="radiusMsg" class="notice"></div>
+    <div id="radiusMap"></div>
+    <div id="radiusLegend" class="map-legend"></div>
+    <div class="map-note">Arraste o pino colorido para mover o raio ativo. Ajuste o tamanho no campo "Raio da rota". Pedidos pendentes aparecem no mapa; ao marcar como entregue, eles somem da visualização. A atribuição do raio usa apenas pedidos que ainda estão na fila da loja.</div>
+  </div>
+
+  <!-- FECHAMENTO -->
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><h2 style="margin:0">Fechamento de caixa</h2>
+      <button class="btn-s no-print" onclick="printClose()">🖨 Imprimir fechamento</button></div>
+    <div id="close"></div>
+  </div>
+
+  <div class="card no-print" style="font-size:12px;color:var(--gray)">
+    <b>Como usar no dia a dia:</b> cadastre os entregadores e mantenha o status correto: "Na loja" ou "Em rota". Conforme os pedidos saem, adicione as entregas na fila da loja. Quando houver entregador disponível, clique em "Distribuir fila para quem está na loja"; o painel divide as entregas e otimiza a rota de cada um. Depois imprima o romaneio, abra no Maps e marque o entregador como "Em rota". Quando ele voltar, marque "Voltou para loja".
+  </div>
+</div>
+
+<!-- PRINT TARGET -->
+<div id="printArea"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const $=id=>document.getElementById(id);
+const money=v=>'R$ '+(Number(v)||0).toFixed(2).replace('.',',');
+const uid=()=>Math.random().toString(36).slice(2,9);
+const DISTRICTS=[
+  {name:'Abolição',lat:-22.8867,lon:-43.3004},{name:'Andaraí',lat:-22.9243,lon:-43.2497},{name:'Anil',lat:-22.9552,lon:-43.3395},
+  {name:'Barra da Tijuca',lat:-23.0004,lon:-43.3659},{name:'Benfica',lat:-22.8921,lon:-43.2413},{name:'Bento Ribeiro',lat:-22.8667,lon:-43.3624},
+  {name:'Bonsucesso',lat:-22.8618,lon:-43.2521},{name:'Botafogo',lat:-22.9519,lon:-43.1843},{name:'Cachambi',lat:-22.8898,lon:-43.2750},
+  {name:'Campo Grande',lat:-22.9035,lon:-43.5590},{name:'Catete',lat:-22.9255,lon:-43.1761},{name:'Centro',lat:-22.9068,lon:-43.1729},
+  {name:'Cidade Nova',lat:-22.9102,lon:-43.2044},{name:'Copacabana',lat:-22.9707,lon:-43.1824},{name:'Cosme Velho',lat:-22.9415,lon:-43.2006},
+  {name:'Del Castilho',lat:-22.8794,lon:-43.2714},{name:'Engenho de Dentro',lat:-22.9029,lon:-43.2952},{name:'Engenho Novo',lat:-22.9093,lon:-43.2677},
+  {name:'Estácio',lat:-22.9168,lon:-43.2032},{name:'Flamengo',lat:-22.9339,lon:-43.1743},{name:'Freguesia',lat:-22.9407,lon:-43.3413},
+  {name:'Gávea',lat:-22.9814,lon:-43.2386},{name:'Glória',lat:-22.9184,lon:-43.1730},{name:'Grajaú',lat:-22.9234,lon:-43.2578},
+  {name:'Humaitá',lat:-22.9559,lon:-43.2009},{name:'Ipanema',lat:-22.9837,lon:-43.2045},{name:'Irajá',lat:-22.8351,lon:-43.3234},
+  {name:'Jacarepaguá',lat:-22.9653,lon:-43.3977},{name:'Jardim Botânico',lat:-22.9665,lon:-43.2230},{name:'Lagoa',lat:-22.9711,lon:-43.2116},
+  {name:'Laranjeiras',lat:-22.9349,lon:-43.1878},{name:'Leblon',lat:-22.9845,lon:-43.2233},{name:'Leme',lat:-22.9631,lon:-43.1667},
+  {name:'Madureira',lat:-22.8738,lon:-43.3395},{name:'Maracanã',lat:-22.9122,lon:-43.2302},{name:'Méier',lat:-22.9029,lon:-43.2817},
+  {name:'Olaria',lat:-22.8484,lon:-43.2654},{name:'Penha',lat:-22.8391,lon:-43.2761},{name:'Piedade',lat:-22.8938,lon:-43.3110},
+  {name:'Praça da Bandeira',lat:-22.9113,lon:-43.2139},{name:'Ramos',lat:-22.8492,lon:-43.2577},{name:'Recreio dos Bandeirantes',lat:-23.0186,lon:-43.4771},
+  {name:'Riachuelo',lat:-22.9026,lon:-43.2555},{name:'Rio Comprido',lat:-22.9244,lon:-43.2090},{name:'Rocha',lat:-22.9005,lon:-43.2489},
+  {name:'Santa Teresa',lat:-22.9214,lon:-43.1872},{name:'Santo Cristo',lat:-22.8982,lon:-43.2025},{name:'São Conrado',lat:-22.9985,lon:-43.2673},
+  {name:'São Cristóvão',lat:-22.8977,lon:-43.2214},{name:'Saúde',lat:-22.8978,lon:-43.1849},{name:'Taquara',lat:-22.9218,lon:-43.3846},
+  {name:'Tijuca',lat:-22.9329,lon:-43.2396},{name:'Todos os Santos',lat:-22.8955,lon:-43.2859},{name:'Urca',lat:-22.9506,lon:-43.1634},
+  {name:'Vila Isabel',lat:-22.9166,lon:-43.2476},{name:'Vila Kosmos',lat:-22.8535,lon:-43.3037},{name:'Vila Valqueire',lat:-22.8877,lon:-43.3655},
+  {name:'Anchieta',lat:-22.8233,lon:-43.3988},{name:'Ricardo de Albuquerque',lat:-22.8402,lon:-43.3955},{name:'Guadalupe',lat:-22.8396,lon:-43.3761},
+  {name:'Nilopolis',lat:-22.8076,lon:-43.4136,city:'Nilopolis - RJ'},{name:'Centro de Nilopolis',lat:-22.8065,lon:-43.4145,city:'Nilopolis - RJ'},
+  {name:'Olinda',lat:-22.8149,lon:-43.4046,city:'Nilopolis - RJ'},{name:'Cabral',lat:-22.8009,lon:-43.4243,city:'Nilopolis - RJ'},
+  {name:'Parque Anchieta',lat:-22.8353,lon:-43.4137},{name:'Pavuna',lat:-22.8058,lon:-43.3594},{name:'Acari',lat:-22.8225,lon:-43.3391},
+  {name:'Barros Filho',lat:-22.8356,lon:-43.3631},{name:'Costa Barros',lat:-22.8244,lon:-43.3709},{name:'Coelho Neto',lat:-22.8319,lon:-43.3492},{name:'Colegio',lat:-22.8420,lon:-43.3357},
+  {name:'Oswaldo Cruz',lat:-22.8721,lon:-43.3516},{name:'Marechal Hermes',lat:-22.8587,lon:-43.3691},{name:'Realengo',lat:-22.8768,lon:-43.4304},{name:'Vila Militar',lat:-22.8605,lon:-43.4021},
+  {name:'Vila da Penha',lat:-22.8442,lon:-43.3105},{name:'Mesquita',lat:-22.7832,lon:-43.4287,city:'Mesquita - RJ'},{name:'Chatuba',lat:-22.7879,lon:-43.4091,city:'Mesquita - RJ'},
+  {name:'Edson Passos',lat:-22.7753,lon:-43.4362,city:'Mesquita - RJ'},{name:'Banco de Areia',lat:-22.7856,lon:-43.4208,city:'Mesquita - RJ'},
+  {name:'Sao Joao de Meriti',lat:-22.8037,lon:-43.3727,city:'Sao Joao de Meriti - RJ'},{name:'Vilar dos Teles',lat:-22.7856,lon:-43.3775,city:'Sao Joao de Meriti - RJ'},
+  {name:'Jardim Meriti',lat:-22.7934,lon:-43.3639,city:'Sao Joao de Meriti - RJ'},{name:'Coelho da Rocha',lat:-22.7975,lon:-43.3883,city:'Sao Joao de Meriti - RJ'},
+  {name:'Belford Roxo',lat:-22.7645,lon:-43.3996,city:'Belford Roxo - RJ'},{name:'Heliopolis',lat:-22.7596,lon:-43.3949,city:'Belford Roxo - RJ'},
+  {name:'Nova Iguacu',lat:-22.7592,lon:-43.4511,city:'Nova Iguacu - RJ'}
+];
+const STREET_BANK={
+  Anchieta:['Estrada Marechal Alencastro','Rua Cardoso de Castro','Rua Japoara','Rua Vitor Meireles','Rua General Otavio Povoa','Rua Carius','Rua Alcobaca','Rua Quintao','Rua Flora Rica','Rua Itapemirim'],
+  'Parque Anchieta':['Avenida Nazare','Rua Alcobaca','Rua Itapemirim','Rua Carius','Rua Flora Rica','Rua Canitar','Rua Ipiranga','Rua Jornalista Antonio de Freitas','Rua General Otavio Povoa'],
+  'Ricardo de Albuquerque':['Estrada Marechal Alencastro','Rua Japoara','Rua Capitao Menezes','Rua Camboata','Rua Antonio Austregesilo','Rua Agostinho Barbalho','Rua Taciba','Rua General Rondon','Rua da Democracia'],
+  Guadalupe:['Avenida Brasil','Avenida Pastor Martin Luther King Junior','Estrada do Camboata','Rua Marcos de Macedo','Rua Luis Coutinho Cavalcanti','Rua Francisco Portela','Rua General Savaget','Rua Engenheiro Claudio Ganns','Rua Jornalista Hermano Requiao'],
+  Nilopolis:['Estrada Mirandela','Avenida Getulio Vargas','Rua Pedro Alvares Cabral','Rua Antonio Joao Mendonca','Rua Joao Pessoa','Rua Pracinha Wallace Paes Leme','Rua Coronel Franca Leite','Rua Professor Alfredo Goncalves Filgueiras','Rua General Mena Barreto'],
+  'Centro de Nilopolis':['Estrada Mirandela','Avenida Getulio Vargas','Rua Pedro Alvares Cabral','Rua Joao Pessoa','Rua Antonio Joao Mendonca','Rua General Mena Barreto'],
+  Olinda:['Avenida Getulio Vargas','Rua Joao Rodrigues da Cunha','Rua Vereador Francisco Nunes','Rua Coronel Jose Muniz','Rua Antonio Cardoso Leal'],
+  Cabral:['Rua Pedro Alvares Cabral','Rua Coronel Franca Leite','Rua Joao Pessoa','Rua Antonio Joao Mendonca'],
+  Pavuna:['Avenida Pastor Martin Luther King Junior','Avenida Chrisostomo Pimentel de Oliveira','Rua Mercurio','Rua Catao','Rua Sargento Silvio Hollenbach','Estrada do Quitungo'],
+  Acari:['Avenida Pastor Martin Luther King Junior','Rua Guaiuba','Rua Piracambu','Rua Ipua','Rua Embau','Rua Taquari'],
+  'Barros Filho':['Estrada Joao Paulo','Rua Conselheiro Galvao','Rua Toriba','Rua Carolina Amado','Rua Piraquara'],
+  'Costa Barros':['Estrada Joao Paulo','Rua Limites','Rua dos Campeoes','Rua Jornalista Geraldo Rocha','Rua Teixeira Campos'],
+  'Coelho Neto':['Avenida Brasil','Avenida Pastor Martin Luther King Junior','Rua Guapore','Rua Jacatirao','Rua Pedro Jorio','Rua Umbuzeiro'],
+  Colegio:['Avenida Pastor Martin Luther King Junior','Estrada do Colegio','Rua Guirareia','Rua Sao Mateus','Rua Aricuri'],
+  Iraja:['Avenida Monsenhor Felix','Avenida Pastor Martin Luther King Junior','Estrada da Agua Grande','Rua Hannibal Porto','Rua Ferreira de Andrade'],
+  'Vila Kosmos':['Avenida Meriti','Rua Itacambira','Rua Maria do Carmo','Rua Cordovil','Rua Engenheiro Lafayette Stockler'],
+  'Vila da Penha':['Avenida Meriti','Avenida Vicente de Carvalho','Rua Engenheiro Lafayette Stockler','Rua Alice Tibirica','Rua Oliveira Belo'],
+  Madureira:['Estrada do Portela','Rua Carolina Machado','Rua Conselheiro Galvao','Rua Americo Brasiliense','Rua Carvalho de Souza'],
+  'Oswaldo Cruz':['Estrada do Portela','Rua Carolina Machado','Rua Frei Bento','Rua Joao Vicente','Rua Frei Caneca'],
+  'Marechal Hermes':['Rua Joao Vicente','Rua Engenheiro Emilio Baumgart','Rua Carolina Machado','Rua Xavier Curado','Rua Piraquara'],
+  Realengo:['Rua Bernardo de Vasconcelos','Avenida de Santa Cruz','Rua Marechal Joaquim Inacio','Rua General Azeredo','Rua Piraquara'],
+  'Vila Militar':['Avenida Duque de Caxias','Rua Salustiano Silva','Rua General Canrobert Pereira da Costa','Rua General Mario Hermes','Rua Dona Benedita'],
+  Mesquita:['Avenida Governador Celso Pecanha','Rua Baronesa de Mesquita','Rua Mister Watkins','Rua Hercilia','Rua Arthur de Oliveira Vecchi'],
+  Chatuba:['Rua Mister Watkins','Rua Magno de Carvalho','Rua Hercilia','Rua Baronesa de Mesquita','Rua Coronel Franca Leite'],
+  'Edson Passos':['Avenida Getulio de Moura','Rua Arthur de Oliveira Vecchi','Rua Feliciano Sodre','Rua Baronesa de Mesquita'],
+  'Banco de Areia':['Avenida Governador Celso Pecanha','Rua Libania','Rua Cosmorama','Rua Parana'],
+  'Sao Joao de Meriti':['Avenida Automovel Clube','Avenida Presidente Lincoln','Rua da Matriz','Rua Gessyr Goncalves Fontes','Rua Panamense'],
+  'Vilar dos Teles':['Avenida Automovel Clube','Rua Gessyr Goncalves Fontes','Rua Jose de Alvarenga','Rua Antonio Teles de Menezes'],
+  'Jardim Meriti':['Avenida Presidente Lincoln','Rua Euclides da Cunha','Rua Gessyr Goncalves Fontes','Rua Panamense'],
+  'Coelho da Rocha':['Rua Panamense','Rua Valdir Niemeyer','Avenida Automovel Clube','Rua Antonio Teles de Menezes'],
+  'Belford Roxo':['Avenida Benjamin Pinto Dias','Avenida Joaquim da Costa Lima','Rua Jose Mariano dos Passos','Rua Retiro da Imprensa','Rua Floripes Rocha'],
+  Heliopolis:['Avenida Joaquim da Costa Lima','Rua Heliopolis','Rua Itaiara','Rua Floripes Rocha','Rua Coronel Antonio Fernandes'],
+  'Nova Iguacu':['Via Light','Rua Doutor Barros Junior','Rua Otavio Tarquino','Avenida Governador Amaral Peixoto','Rua Coronel Bernardino de Melo']
+};
+let S={start:'',city:'',defFee:3,avgSpeed:22,stopMin:4,deliveryRadiusKm:20,radiusKm:3,pw:'80',drivers:[],deliveries:[],radiusZones:[],activeRadiusId:null};
+let radiusMap=null, radiusLayer=null, radiusMarkers=[], radiusRoute=null, radiusZoneLayers=[];
+const RADIUS_COLORS=['#2E7D32','#E65100','#1565C0','#6A1B9A','#00838F','#AD1457'];
+const contentMM=()=>(S.pw==='58'?'50':'72');
+function applyPW(){document.documentElement.style.setProperty('--pw',contentMM()+'mm');}
+function setRouteMsg(msg, kind){
+  const el=$('routeMsg');
+  if(!el) return;
+  el.textContent=msg||'';
+  el.className='notice no-print'+(kind==='err'?' err':'');
+  el.style.display=msg?'block':'none';
+}
+function setBusy(busy){
+  document.querySelectorAll('button').forEach(btn=>{btn.disabled=busy;});
+}
+function setRadiusMsg(msg, kind){
+  const el=$('radiusMsg');
+  if(!el) return;
+  el.textContent=msg||'';
+  el.className='notice'+(kind==='err'?' err':'');
+  el.style.display=msg?'block':'none';
+}
+function joinAddress(parts){
+  return parts.map(p=>(p||'').trim()).filter(Boolean).join(', ');
+}
+function deliveryAddress(d){
+  if(d.street || d.number || d.district || d.city){
+    return joinAddress([d.street, d.number, d.district, d.city || S.city]);
+  }
+  return d.address || '';
+}
+function startPoint(){
+  return S.startLat!=null&&S.startLon!=null ? {lat:S.startLat,lon:S.startLon} : null;
+}
+function normText(s){
+  return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+}
+function districtInfo(name){
+  const n=normText(name);
+  return DISTRICTS.find(d=>normText(d.name)===n)||null;
+}
+function cityForDistrict(name){
+  const d=districtInfo(name);
+  return (d&&d.city)||((S.city||'').trim());
+}
+function deliveryRadiusKm(){
+  return Math.max(Number(S.deliveryRadiusKm)||20,1);
+}
+function nearbyDistricts(){
+  const start=startPoint();
+  if(!start) return DISTRICTS.slice().sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+  const radius=deliveryRadiusKm();
+  const items=DISTRICTS
+    .map(d=>({...d,km:haversine(start,d)}))
+    .filter(d=>d.km<=radius)
+    .sort((a,b)=>a.km-b.km);
+  return items.length?items:DISTRICTS.slice().sort((a,b)=>a.name.localeCompare(b.name,'pt-BR'));
+}
+function renderDistrictOptions(selected){
+  const sel=$('fDistrict');
+  if(!sel) return;
+  const value=selected!=null?selected:sel.value;
+  const items=nearbyDistricts();
+  sel.innerHTML='<option value="">Selecione</option>'+items.map(d=>{
+    const label=d.km!=null?`${d.name} (${d.km.toFixed(1).replace('.',',')} km)`:d.name;
+    return `<option value="${esc(d.name)}" ${d.name===value?'selected':''}>${esc(label)}</option>`;
+  }).join('');
+  renderStreetSuggestions();
+}
+function streetSuggestions(){
+  const selected=$('fDistrict')?.value||'';
+  const typed=normText($('fStreet')?.value||'');
+  const districts=selected ? [selected] : [];
+  nearbyDistricts().forEach(d=>districts.push(d.name));
+  const unique=new Map();
+  districts.forEach(name=>{
+    const info=districtInfo(name);
+    const list=STREET_BANK[name]||STREET_BANK[info?.name]||[];
+    list.forEach(st=>{
+      const key=normText(st);
+      if((!typed || key.includes(typed)) && !unique.has(key)) unique.set(key, st);
+    });
+  });
+  return [...unique.values()].sort((a,b)=>a.localeCompare(b,'pt-BR')).slice(0,120);
+}
+function renderStreetSuggestions(){
+  const dl=$('streetSuggestions');
+  if(!dl) return;
+  dl.innerHTML=streetSuggestions().map(st=>`<option value="${esc(st)}"></option>`).join('');
+}
+async function updateNearbyDistricts(){
+  if(!S.start.trim()){alert('Defina o ponto de partida da loja antes de filtrar bairros próximos.');return;}
+  setRouteMsg('Atualizando bairros próximos da loja...');
+  const g=await geocode(S.start);
+  if(g){
+    S.startLat=g.lat; S.startLon=g.lon; save(); render();
+    setRouteMsg(`Bairros e ruas filtrados em ate ${deliveryRadiusKm().toFixed(0)} km da loja.`);
+  }else{
+    renderDistrictOptions();
+    setRouteMsg('Não localizei a loja agora. Mostrei a lista completa de bairros.', 'err');
+  }
+}
+function driverStatus(drv){
+  return (drv && drv.status)==='route' ? 'route' : 'store';
+}
+function driverRouteMinutes(drvId){
+  return Math.max(estimateRouteMinutes(startPoint(),driverDeliveries(drvId).filter(d=>!d.done)),1);
+}
+function driverRouteInfo(drv){
+  if(!drv || driverStatus(drv)!=='route' || !drv.routeStartedAt) return '';
+  const elapsed=(Date.now()-drv.routeStartedAt)/60000;
+  const eta=Number(drv.routeEtaMin)||driverRouteMinutes(drv.id);
+  const remaining=Math.max(eta-elapsed,0);
+  const late=Math.max(elapsed-eta,0);
+  const due=new Date(drv.routeStartedAt+eta*60000).toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  return late>0
+    ? `Em rota há ${fmtMinutes(elapsed)} · atraso ${fmtMinutes(late)}`
+    : `Em rota há ${fmtMinutes(elapsed)} · volta ~${due} (${fmtMinutes(remaining)})`;
+}
+function storeDrivers(){
+  return S.drivers.filter(d=>driverStatus(d)==='store');
+}
+function queueDeliveries(){
+  return S.deliveries.filter(d=>!isPlatformDelivery(d) && !d.driver && !d.done).sort((a,b)=>(a.queuedAt||0)-(b.queuedAt||0));
+}
+function pendingMapDeliveries(){
+  return S.deliveries.filter(d=>!isPlatformDelivery(d) && !d.done).sort((a,b)=>(a.queuedAt||0)-(b.queuedAt||0));
+}
+function isPlatformDelivery(d){
+  return d && d.mode==='platform';
+}
+function platformPickups(){
+  return S.deliveries.filter(d=>isPlatformDelivery(d)).sort((a,b)=>(a.queuedAt||0)-(b.queuedAt||0));
+}
+
+function load(){
+  try{const r=localStorage.getItem('outfood_ops');if(r)S=Object.assign(S,JSON.parse(r));}catch(e){}
+  S.city=S.city||'';
+  S.defFee=Number(S.defFee);
+  if(!Number.isFinite(S.defFee)) S.defFee=3;
+  S.avgSpeed=Number(S.avgSpeed)||22;
+  S.stopMin=Number(S.stopMin)||4;
+  S.deliveryRadiusKm=Math.max(Number(S.deliveryRadiusKm)||20,1);
+  S.radiusKm=Number(S.radiusKm)||3;
+  S.drivers.forEach(d=>{ if(!d.status)d.status='store'; });
+  S.deliveries.forEach((d,i)=>{ if(!d.queuedAt)d.queuedAt=Date.now()+i; if(!d.mode)d.mode='store'; });
+}
+function save(){
+  const nextStart=$('start').value;
+  if(nextStart!==S.start){S.startLat=null;S.startLon=null;}
+  S.start=nextStart; S.city=$('city').value; S.defFee=parseFloat($('defFee').value)||0; S.avgSpeed=parseFloat($('avgSpeed').value)||22; S.stopMin=parseFloat($('stopMin').value)||4; S.deliveryRadiusKm=Math.max(parseFloat($('deliveryRadiusKm')?.value)||20,1); S.radiusKm=parseFloat($('radiusKm')?.value)||3; S.pw=$('pw').value;
+  try{localStorage.setItem('outfood_ops',JSON.stringify(S));}catch(e){}
+  applyPW();
+}
+function today(){const d=new Date();return d.toLocaleDateString('pt-BR');}
+
+function addDriver(){
+  const n=$('newDrv').value.trim(); if(!n)return;
+  S.drivers.push({id:uid(),name:n,status:'store'}); $('newDrv').value=''; save(); render();
+}
+function toggleDriverRoute(id){
+  const d=S.drivers.find(x=>x.id===id);
+  if(!d)return;
+  if(driverStatus(d)==='route'){
+    d.status='store';
+    d.routeStartedAt=null;
+    d.routeEtaMin=null;
+  }else{
+    d.status='route';
+    d.routeStartedAt=Date.now();
+    d.routeEtaMin=driverRouteMinutes(id);
+  }
+  save(); render();
+}
+function removeDriver(id){
+  if(!confirm('Remover entregador? As entregas dele voltam para a fila da loja.'))return;
+  S.deliveries.forEach(d=>{if(d.driver===id)d.driver=null;});
+  S.drivers=S.drivers.filter(x=>x.id!==id); save(); render();
+}
+function toggleDeliveryModeFields(){
+  const platform=$('fMode')?.value==='platform';
+  if($('fStreet')) $('fStreet').placeholder=platform?'Opcional para retirada':'Ex.: Rua General...';
+  if($('fNumber')) $('fNumber').placeholder=platform?'Opcional':'100';
+  if($('fFee') && platform && !$('fFee').value) $('fFee').placeholder='0,00';
+  if($('fFee') && !platform && !$('fFee').value) $('fFee').placeholder='3,00';
+}
+function addDelivery(){
+  const mode=$('fMode')?.value==='platform'?'platform':'store';
+  const street=$('fStreet').value.trim();
+  const number=$('fNumber').value.trim();
+  const district=$('fDistrict').value.trim();
+  const city=cityForDistrict(district);
+  if(mode!=='platform' && !street){alert('Informe a rua.');return;}
+  if(mode!=='platform' && !number){alert('Informe o numero.');return;}
+  if(mode!=='platform' && !district){alert('Selecione o bairro.');return;}
+  const addr=mode==='platform'?'Retirada no restaurante':joinAddress([street, number, district, city]);
+  const fee=$('fFee').value!==''?parseFloat($('fFee').value):(mode==='platform'?0:S.defFee);
+  S.deliveries.push({id:uid(),label:$('fLabel').value.trim(),street:street,number:number,district:district,city:city,address:addr,fee:fee||0,
+    cash:parseFloat($('fCash').value)||0,driver:null,mode:mode,done:false,lat:null,lon:null,ord:null,queuedAt:Date.now()});
+  $('fLabel').value='';$('fMode').value='store';$('fStreet').value='';$('fNumber').value='';$('fDistrict').value='';$('fFee').value='';$('fCash').value='';
+  toggleDeliveryModeFields();
+  save(); render(); $('fLabel').focus();
+}
+function delDelivery(id){ S.deliveries=S.deliveries.filter(d=>d.id!==id); save(); render(); }
+function toggleDone(id){ const d=S.deliveries.find(x=>x.id===id); d.done=!d.done; save(); render(); drawRadiusMap(); }
+function moveDelivery(id,drv){
+  const d=S.deliveries.find(x=>x.id===id);
+  if(!d)return;
+  if(drv==='__platform'){
+    d.mode='platform'; d.driver=null; d.ord=null; d.lat=null; d.lon=null;
+  }else{
+    d.mode='store'; d.driver=drv||null; d.ord=null;
+  }
+  save(); render(); drawRadiusMap();
+}
+
+async function assignQueue(){
+  const queue=queueDeliveries();
+  if(!queue.length){alert('A fila da loja está vazia.');return;}
+  const available=storeDrivers();
+  if(!available.length){alert('Nenhum entregador está marcado como "Na loja". Marque quem voltou antes de distribuir a fila.');return;}
+  if(!S.start.trim()){alert('Defina o ponto de partida (cozinha) na configuração.');return;}
+
+  setBusy(true);
+  setRouteMsg('Calculando tempos da fila...');
+  $('prog').style.display='block';
+  $('pbar').style.width='0%';
+
+  try{
+    const work=[...queue];
+    const existing=new Map(available.map(drv=>[drv.id, driverDeliveries(drv.id).filter(d=>!d.done)]));
+    const total=work.length+1;
+    let done=0;
+    const upd=t=>{done++;$('pbar').style.width=Math.round(done/total*100)+'%';$('ptxt').textContent=t;};
+
+    $('ptxt').textContent='Localizando ponto de partida...';
+    const start=await geocode(S.start);
+    if(start){S.startLat=start.lat;S.startLon=start.lon;}
+    await sleep(1100);
+    upd('Localizando pedidos da fila...');
+    await ensureDeliveryCoords([...work, ...available.flatMap(drv=>existing.get(drv.id))], msg=>{$('ptxt').textContent=msg;});
+
+    for(const delivery of work){
+      let best=null;
+      for(const drv of available){
+        const current=existing.get(drv.id);
+        const projected=[...current, delivery];
+        const minutes=estimateRouteMinutes(start, projected);
+        const currentMinutes=estimateRouteMinutes(start, current);
+        const added=minutes-currentMinutes;
+        const score=minutes+(current.length*0.5);
+        if(!best || score<best.score) best={drv, minutes, added, score};
+      }
+      delivery.driver=best.drv.id;
+      delivery.ord=null;
+      existing.get(best.drv.id).push(delivery);
+      upd('Distribuindo '+deliveryAddress(delivery)+' para '+best.drv.name+' (~'+fmtMinutes(best.added)+' a mais)');
+    }
+
+    for(const drv of available){
+      const ordered=buildOptimizedOrder(start, existing.get(drv.id));
+      ordered.forEach((d,i)=>d.ord=i+1);
+    }
+    save();
+    render();
+    setRouteMsg('Fila distribuída por menor tempo estimado. Confira as rotas e marque o entregador como "Em rota" ao despachar.');
+  }catch(e){
+    setRouteMsg('Não foi possível calcular a distribuição por tempo agora. A fila foi mantida para tentar novamente.', 'err');
+  }finally{
+    $('prog').style.display='none';
+    setBusy(false);
+  }
+}
+
+function driverDeliveries(drvId){
+  let arr=S.deliveries.filter(d=>!isPlatformDelivery(d) && d.driver===drvId);
+  arr.sort((a,b)=>{ if(a.ord==null&&b.ord==null)return 0; if(a.ord==null)return 1; if(b.ord==null)return -1; return a.ord-b.ord;});
+  return arr;
+}
+
+function driverSelectHtml(sel, mode){
+  let o='<option value="">Fila da loja</option>';
+  o+=`<option value="__platform" ${mode==='platform'?'selected':''}>Entregador da plataforma</option>`;
+  S.drivers.forEach(d=>{
+    const st=driverStatus(d)==='route'?' (em rota)':'';
+    o+=`<option value="${d.id}" ${d.id===sel?'selected':''}>${esc(d.name+st)}</option>`;
+  });
+  return o;
+}
+function renderRadiusDriverOptions(){
+  const sel=$('radiusDriver');
+  if(!sel) return;
+  const current=sel.value;
+  const drivers=storeDrivers();
+  sel.innerHTML=drivers.length
+    ? drivers.map(d=>`<option value="${d.id}" ${d.id===current?'selected':''}>${esc(d.name)}</option>`).join('')
+    : '<option value="">Nenhum na loja</option>';
+}
+
+function render(){
+  $('hd').textContent='Data: '+today()+' · '+S.deliveries.length+' entregas · '+storeDrivers().length+' na loja · '+S.drivers.filter(d=>driverStatus(d)==='route').length+' em rota';
+  $('start').value=S.start||''; $('city').value=S.city||''; $('defFee').value=S.defFee; $('avgSpeed').value=S.avgSpeed; $('stopMin').value=S.stopMin; $('deliveryRadiusKm').value=S.deliveryRadiusKm; $('radiusKm').value=S.radiusKm; if($('radiusKmSlider')) $('radiusKmSlider').value=Math.min(Number(S.radiusKm)||3,20); $('pw').value=S.pw;
+  toggleDeliveryModeFields();
+  applyPW();
+  renderDistrictOptions();
+  renderRadiusDriverOptions();
+  renderRadiusZoneOptions();
+  applyActiveRadiusToControls();
+  $('links').innerHTML='';
+  setRouteMsg('');
+
+  // board
+  const cols=[];
+  S.drivers.forEach(drv=>cols.push(colHtml(drv)));
+  cols.push(colHtml(null));
+  cols.push(platformColHtml());
+  $('board').innerHTML=cols.join('');
+  const done=S.deliveries.filter(d=>d.done).length;
+  $('boardInfo').textContent=queueDeliveries().length+' na fila · '+platformPickups().filter(d=>!d.done).length+' retirada plataforma · '+done+' / '+S.deliveries.length+' concluídos';
+
+  renderClose();
+}
+
+function colHtml(drv){
+  const id=drv?drv.id:null;
+  const list=driverDeliveries(id);
+  const totFee=list.reduce((s,d)=>s+(d.fee||0),0);
+  const doneN=list.filter(d=>d.done).length;
+  const pending=list.filter(d=>!d.done);
+  const timeText=pending.length?' · ~'+fmtMinutes(estimateRouteMinutes(startPoint(),pending)):'';
+  const status=id?driverStatus(drv):'store';
+  const statusHtml=id?` <span class="status ${status}">${status==='route'?'Em rota':'Na loja'}</span>`:'';
+  const routeInfo=id?driverRouteInfo(drv):'';
+  let cards='';
+  if(!list.length) cards='<div class="empty">Sem entregas</div>';
+  list.forEach((d,i)=>{
+    cards+=`<div class="delivery ${d.done?'done':''}">
+      <div class="top"><span><span class="num">${id&&d.ord!=null?(i+1)+'. ':''}</span><span class="addr">${esc(deliveryAddress(d))}</span></span>
+        <button class="mini" onclick="delDelivery('${d.id}')" title="Remover">✕</button></div>
+      ${d.label?`<div class="sub">${esc(d.label)}</div>`:''}
+      <div class="sub">Taxa ${money(d.fee)}${d.cash?' · Dinheiro '+money(d.cash):''}</div>
+      <div class="ctl">
+        <label><input type="checkbox" ${d.done?'checked':''} onchange="toggleDone('${d.id}')"> entregue</label>
+        <select onchange="moveDelivery('${d.id}',this.value)">${driverSelectHtml(id,d.mode)}</select>
+      </div></div>`;
+  });
+  const acts=id?`<div class="acts no-print">
+      <button class="${status==='route'?'btn-g':'btn'}" onclick="toggleDriverRoute('${id}')">${status==='route'?'Voltou para loja':'Marcar em rota'}</button>
+      <button class="btn-s" onclick="optimize('${id}')">Otimizar rota</button>
+      <button class="btn-s" onclick="openMaps('${id}')">Abrir no Maps</button>
+      <button class="btn-g" onclick="printRomaneio('${id}')">🖨 Romaneio</button>
+      <button class="btn-r" onclick="removeDriver('${id}')">Remover</button></div>`:'';
+  return `<div class="col ${id?'':'unassigned'}">
+    <h3><span>${id?esc(drv.name):'Fila da loja'}${statusHtml}</span> <span class="tag">${doneN}/${list.length} · ${money(totFee)}${timeText}</span></h3>
+    ${acts}${routeInfo?`<div class="sub" style="padding:8px 10px;border-bottom:1px dashed var(--border);font-weight:600">${esc(routeInfo)}</div>`:''}<div class="cards">${cards}</div></div>`;
+}
+
+function platformColHtml(){
+  const list=platformPickups();
+  const doneN=list.filter(d=>d.done).length;
+  let cards='';
+  if(!list.length) cards='<div class="empty">Sem retiradas</div>';
+  list.forEach(d=>{
+    cards+=`<div class="delivery ${d.done?'done':''}">
+      <div class="top"><span><span class="addr">${esc(d.label||'Pedido plataforma')}</span></span>
+        <button class="mini" onclick="delDelivery('${d.id}')" title="Remover">×</button></div>
+      <div class="sub">${esc(deliveryAddress(d))}</div>
+      <div class="sub">Não entra em rota${d.fee?' · Taxa '+money(d.fee):''}${d.cash?' · Dinheiro '+money(d.cash):''}</div>
+      <div class="ctl">
+        <label><input type="checkbox" ${d.done?'checked':''} onchange="toggleDone('${d.id}')"> retirado</label>
+        <select onchange="moveDelivery('${d.id}',this.value)">${driverSelectHtml('',d.mode)}</select>
+      </div></div>`;
+  });
+  return `<div class="col unassigned">
+    <h3><span>Retirada plataforma</span> <span class="tag">${doneN}/${list.length}</span></h3>
+    <div class="cards">${cards}</div></div>`;
+}
+
+function renderClose(){
+  let rows='', gFee=0,gCash=0,gN=0,gD=0;
+  S.drivers.forEach(drv=>{
+    const list=driverDeliveries(drv.id);
+    const fee=list.reduce((s,d)=>s+(d.fee||0),0);
+    const cash=list.reduce((s,d)=>s+(d.cash||0),0);
+    const doneN=list.filter(d=>d.done).length;
+    gFee+=fee;gCash+=cash;gN+=list.length;gD+=doneN;
+    rows+=`<tr><td>${esc(drv.name)}</td><td class="r">${list.length}</td><td class="r">${doneN}</td>
+      <td class="r">${money(fee)}</td><td class="r">${money(cash)}</td></tr>`;
+  });
+  const un=driverDeliveries(null);
+  if(un.length) rows+=`<tr><td style="color:var(--gray)">Fila da loja</td><td class="r">${un.length}</td><td class="r">${un.filter(d=>d.done).length}</td><td class="r">${money(un.reduce((s,d)=>s+(d.fee||0),0))}</td><td class="r">${money(un.reduce((s,d)=>s+(d.cash||0),0))}</td></tr>`;
+  const platform=platformPickups();
+  if(platform.length) rows+=`<tr><td style="color:var(--gray)">Retirada plataforma</td><td class="r">${platform.length}</td><td class="r">${platform.filter(d=>d.done).length}</td><td class="r">${money(platform.reduce((s,d)=>s+(d.fee||0),0))}</td><td class="r">${money(platform.reduce((s,d)=>s+(d.cash||0),0))}</td></tr>`;
+  if(!S.drivers.length && !un.length && !platform.length){ $('close').innerHTML='<div class="empty">Cadastre entregadores e adicione entregas para ver o fechamento.</div>'; return; }
+  $('close').innerHTML=`<table><thead><tr><th>Entregador</th><th class="r">Entregas</th><th class="r">Entregues</th><th class="r">Taxas a pagar</th><th class="r">Dinheiro recebido</th></tr></thead>
+    <tbody>${rows}<tr class="tot"><td>TOTAL (entregadores)</td><td class="r">${gN}</td><td class="r">${gD}</td><td class="r">${money(gFee)}</td><td class="r">${money(gCash)}</td></tr></tbody></table>`;
+}
+
+/* ---------------- ROTA / GEO ---------------- */
+function haversine(a,b){const R=6371,t=x=>x*Math.PI/180;const dy=t(b.lat-a.lat),dx=t(b.lon-a.lon);const s=Math.sin(dy/2)**2+Math.cos(t(a.lat))*Math.cos(t(b.lat))*Math.sin(dx/2)**2;return 2*R*Math.asin(Math.sqrt(s));}
+function nn(start,pts){const L=pts.slice(),o=[];let c=start;while(L.length){let bi=0,bd=1e9;for(let i=0;i<L.length;i++){const d=haversine(c,L[i]);if(d<bd){bd=d;bi=i;}}c=L[bi];o.push(c);L.splice(bi,1);}return o;}
+function twoOpt(start,o){const f=[start,...o];let imp=true;while(imp){imp=false;for(let i=1;i<f.length-1;i++)for(let k=i+1;k<f.length;k++){const a=f[i-1],b=f[i],c=f[k],d=f[k+1];const be=haversine(a,b)+(d?haversine(c,d):0),af=haversine(a,c)+(d?haversine(b,d):0);if(af+1e-9<be){const s=f.slice(i,k+1).reverse();f.splice(i,s.length,...s);imp=true;}}}f.shift();return f;}
+async function geocode(q){try{const r=await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=br&q='+encodeURIComponent(q),{headers:{Accept:'application/json'}});const j=await r.json();if(j&&j.length)return{lat:+j[0].lat,lon:+j[0].lon};}catch(e){}return null;}
+const sleep=ms=>new Promise(r=>setTimeout(r,ms));
+function buildOptimizedOrder(start, list){
+  const pending=list.filter(d=>!d.done);
+  const geo=pending.filter(d=>d.lat!=null);
+  const nogeo=pending.filter(d=>d.lat==null);
+  const ordered=(start&&geo.length)?twoOpt(start,nn(start,geo)):geo;
+  return [...ordered, ...nogeo];
+}
+function estimateRouteMinutes(start, list){
+  const order=buildOptimizedOrder(start, list);
+  if(!order.length) return 0;
+  const speed=Math.max(Number(S.avgSpeed)||22,5);
+  const stop=Math.max(Number(S.stopMin)||4,0);
+  let km=0, fallbackLegs=0;
+  for(let i=0;i<order.length;i++){
+    const prev=i===0?start:order[i-1];
+    const cur=order[i];
+    if(prev&&prev.lat!=null&&cur.lat!=null) km+=haversine(prev,cur);
+    else fallbackLegs++;
+  }
+  return (km/speed*60)+(fallbackLegs*10)+(order.length*stop);
+}
+function fmtMinutes(min){
+  min=Math.max(0,Math.round(Number(min)||0));
+  if(min<60) return min+' min';
+  const h=Math.floor(min/60), m=min%60;
+  return h+'h'+(m?String(m).padStart(2,'0'):'');
+}
+async function ensureDeliveryCoords(list, onUpdate){
+  const seen=new Set();
+  for(const d of list){
+    if(!d || d.lat!=null || seen.has(d.id)) continue;
+    seen.add(d.id);
+    if(onUpdate) onUpdate('Localizando '+deliveryAddress(d));
+    const g=await geocode(deliveryAddress(d));
+    if(g){d.lat=g.lat;d.lon=g.lon;}
+    await sleep(1100);
+  }
+}
+
+function radiusZone(){
+  return S.radiusZones.find(z=>z.id===S.activeRadiusId)||S.radiusZones[0]||null;
+}
+function radiusCenter(){
+  const z=radiusZone();
+  if(z&&z.lat!=null&&z.lon!=null) return {lat:z.lat,lon:z.lon};
+  return startPoint();
+}
+function zoneColor(zone){
+  const idx=Math.max(S.radiusZones.findIndex(z=>z.id===zone.id),0);
+  return RADIUS_COLORS[idx%RADIUS_COLORS.length];
+}
+function createRadiusZone(){
+  const drvId=$('radiusDriver')?.value||storeDrivers()[0]?.id||'';
+  if(!drvId){alert('Cadastre ou marque um motoboy como "Na loja" antes de criar um raio.');return;}
+  const center=radiusCenter()||startPoint()||{lat:-22.9068,lon:-43.1729};
+  const zone={id:uid(),driver:drvId,km:Math.max(Number($('radiusKm')?.value)||Number(S.radiusKm)||3,0.5),lat:center.lat,lon:center.lon};
+  S.radiusZones.push(zone);
+  S.activeRadiusId=zone.id;
+  save(); render(); drawRadiusMap();
+}
+function removeRadiusZone(){
+  const z=radiusZone();
+  if(!z)return;
+  S.radiusZones=S.radiusZones.filter(x=>x.id!==z.id);
+  S.activeRadiusId=S.radiusZones[0]?.id||null;
+  save(); render(); drawRadiusMap();
+}
+function selectRadiusZone(id){
+  S.activeRadiusId=id||null;
+  const z=radiusZone();
+  if(z){
+    if($('radiusDriver')) $('radiusDriver').value=z.driver||'';
+    if($('radiusKm')) $('radiusKm').value=z.km||S.radiusKm||3;
+    if($('radiusKmSlider')) $('radiusKmSlider').value=Math.min(Number(z.km||S.radiusKm||3),Number($('radiusKmSlider').max)||20);
+  }
+  save(); drawRadiusMap();
+}
+function syncActiveRadiusFromControls(){
+  const z=radiusZone();
+  if(z){
+    z.driver=$('radiusDriver')?.value||z.driver;
+    z.km=Math.max(Number($('radiusKm')?.value)||z.km||3,0.5);
+  }
+  S.radiusKm=Math.max(Number($('radiusKm')?.value)||S.radiusKm||3,0.5);
+  save(); renderRadiusZoneOptions(); drawRadiusMap();
+}
+function setActiveRadiusSize(value){
+  const km=Math.max(Number(value)||3,0.5);
+  if($('radiusKm')) $('radiusKm').value=km;
+  if($('radiusKmSlider')) $('radiusKmSlider').value=Math.min(km,Number($('radiusKmSlider').max)||20);
+  const z=radiusZone();
+  if(z) z.km=km;
+  S.radiusKm=km;
+  save();
+  renderRadiusZoneOptions();
+  drawRadiusMap();
+}
+function setRadiusCenter(lat,lon){
+  let z=radiusZone();
+  if(!z){
+    createRadiusZone();
+    z=radiusZone();
+  }
+  if(!z)return;
+  z.lat=lat; z.lon=lon;
+  save(); renderRadiusZoneOptions();
+}
+function renderRadiusZoneOptions(){
+  const sel=$('radiusZone');
+  if(!sel)return;
+  if(!S.radiusZones.length){
+    sel.innerHTML='<option value="">Nenhum raio criado</option>';
+    return;
+  }
+  sel.innerHTML=S.radiusZones.map((z,i)=>{
+    const drv=driverName(z.driver)||'Sem motoboy';
+    return `<option value="${z.id}" ${z.id===S.activeRadiusId?'selected':''}>Raio ${i+1} - ${esc(drv)} (${Number(z.km||3).toFixed(1).replace('.',',')} km)</option>`;
+  }).join('');
+}
+function applyActiveRadiusToControls(){
+  const z=radiusZone();
+  if(!z)return;
+  if($('radiusDriver')) $('radiusDriver').value=z.driver||'';
+  if($('radiusKm')) $('radiusKm').value=z.km||S.radiusKm||3;
+  if($('radiusKmSlider')) $('radiusKmSlider').value=Math.min(Number(z.km||S.radiusKm||3),Number($('radiusKmSlider').max)||20);
+}
+function initRadiusMap(){
+  const el=$('radiusMap');
+  if(!el || radiusMap) return;
+  if(typeof L==='undefined'){
+    setRadiusMsg('Mapa não carregou. Verifique a conexão com a internet para carregar o Leaflet/OpenStreetMap.', 'err');
+    return;
+  }
+  const center=radiusCenter() || {lat:-22.9068,lon:-43.1729};
+  radiusMap=L.map('radiusMap').setView([center.lat,center.lon],12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(radiusMap);
+  radiusMap.on('click', e=>{
+    setRadiusCenter(e.latlng.lat,e.latlng.lng);
+    drawRadiusMap();
+  });
+  setTimeout(()=>radiusMap.invalidateSize(),100);
+}
+function clearRadiusLayers(){
+  if(!radiusMap) return;
+  radiusMarkers.forEach(m=>m.remove());
+  radiusMarkers=[];
+  radiusZoneLayers.forEach(l=>l.remove());
+  radiusZoneLayers=[];
+  if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
+}
+function renderRadiusLegend(){
+  const el=$('radiusLegend');
+  if(!el) return;
+  if(!S.radiusZones.length){
+    el.innerHTML='<span><i style="background:#5b6770"></i>Sem raios criados</span>';
+    return;
+  }
+  const items=S.radiusZones.map((z,i)=>{
+    const drv=driverName(z.driver)||'Sem motoboy';
+    const count=pendingMapDeliveries().filter(d=>d.lat!=null&&z.lat!=null&&haversine({lat:z.lat,lon:z.lon},d)<=Number(z.km||3)).length;
+    return `<span><i style="background:${zoneColor(z)}"></i>Raio ${i+1}: ${esc(drv)} · ${Number(z.km||3).toFixed(1).replace('.',',')} km · ${count} pendente(s)</span>`;
+  });
+  items.push('<span><i style="background:#fff;border:2px solid #5b6770;border-radius:3px"></i>Bag na fila</span>');
+  items.push('<span><i style="background:#5b6770;border-radius:3px"></i>Bag atribuida</span>');
+  el.innerHTML=items.join('');
+}
+function bagMarkerIcon(color, assigned){
+  return L.divIcon({
+    className:'bag-marker-wrap',
+    html:`<div class="bag-icon ${assigned?'assigned':''}" style="--bag:${esc(color)}"><span class="bag-dot"></span></div>`,
+    iconSize:[28,36],
+    iconAnchor:[14,34],
+    popupAnchor:[0,-32]
+  });
+}
+function drawRadiusMap(){
+  initRadiusMap();
+  if(!radiusMap) return;
+  syncActiveRadiusFromControlsSilent();
+  clearRadiusLayers();
+  const active=radiusZone();
+  const pending=pendingMapDeliveries();
+  const queue=queueDeliveries();
+  const counts=new Map();
+  S.radiusZones.forEach((z,i)=>{
+    if(z.lat==null||z.lon==null)return;
+    const color=zoneColor(z);
+    const isActive=z.id===S.activeRadiusId;
+    const circle=L.circle([z.lat,z.lon],{radius:(Number(z.km)||3)*1000,color,weight:isActive?4:2,fillColor:color,fillOpacity:isActive ? .12 : .06}).addTo(radiusMap);
+    circle.on('click',()=>selectRadiusZone(z.id));
+    const marker=L.marker([z.lat,z.lon],{draggable:true}).addTo(radiusMap).bindPopup(`Raio ${i+1}<br>${esc(driverName(z.driver)||'Sem motoboy')}<br>${Number(z.km||3).toFixed(1).replace('.',',')} km<br>Arraste para mover`);
+    marker.on('click',()=>selectRadiusZone(z.id));
+    marker.on('dragstart',()=>{
+      S.activeRadiusId=z.id;
+      applyActiveRadiusToControls();
+      renderRadiusZoneOptions();
+    });
+    marker.on('drag',e=>{
+      const p=e.target.getLatLng();
+      z.lat=p.lat; z.lon=p.lng;
+      circle.setLatLng(p);
+    });
+    marker.on('dragend',e=>{
+      const p=e.target.getLatLng();
+      z.lat=p.lat; z.lon=p.lng;
+      save(); renderRadiusZoneOptions(); applyActiveRadiusToControls(); drawRadiusMap();
+    });
+    radiusZoneLayers.push(circle,marker);
+    counts.set(z.id,0);
+  });
+  if(startPoint()){
+    const s=startPoint();
+    radiusMarkers.push(L.circleMarker([s.lat,s.lon],{radius:7,color:'#1F2933',fillColor:'#1F2933',fillOpacity:1}).addTo(radiusMap).bindPopup('Loja'));
+  }
+  const activeInside=[];
+  pending.forEach(d=>{
+    if(d.lat==null||d.lon==null) return;
+    const containing=S.radiusZones.filter(z=>z.lat!=null&&haversine({lat:z.lat,lon:z.lon},d)<=Number(z.km||3));
+    containing.forEach(z=>counts.set(z.id,(counts.get(z.id)||0)+1));
+    const inActive=active&&containing.some(z=>z.id===active.id);
+    if(inActive) activeInside.push(d);
+    const assigned=!!d.driver;
+    const color=inActive&&active?zoneColor(active):(containing[0]?zoneColor(containing[0]):'#5b6770');
+    const marker=L.marker([d.lat,d.lon],{icon:bagMarkerIcon(color,assigned)})
+      .addTo(radiusMap)
+      .bindPopup(`${esc(d.label||'Pedido')}<br>${esc(deliveryAddress(d))}<br>${assigned?'Motoboy: '+esc(driverName(d.driver)||'--'):'Fila da loja'}<br>${containing.length?containing.length+' raio(s)':'Fora dos raios'}`);
+    radiusMarkers.push(marker);
+  });
+  if(active&&active.lat!=null){
+    radiusMap.setView([active.lat,active.lon],13);
+    if(activeInside.length){
+      const routeStart=startPoint()||{lat:active.lat,lon:active.lon};
+      const ordered=buildOptimizedOrder(routeStart,activeInside);
+      const pts=[routeStart,...ordered.map(d=>({lat:d.lat,lon:d.lon}))];
+      radiusRoute=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:zoneColor(active),weight:3,dashArray:'6,6'}).addTo(radiusMap);
+    }
+    const queueInside=queue.filter(d=>d.lat!=null&&haversine({lat:active.lat,lon:active.lon},d)<=Number(active.km||3)).length;
+    const minutes=estimateRouteMinutes(startPoint()||{lat:active.lat,lon:active.lon},activeInside);
+    const drv=driverName(active.driver)||'sem motoboy';
+    setRadiusMsg(`${activeInside.length} pedido(s) pendente(s) no raio ativo para ${drv}. ${queueInside} ainda na fila para atribuir. Tempo estimado: ${fmtMinutes(minutes)}.`);
+  }else{
+    setRadiusMsg(S.radiusZones.length?'Selecione um raio ativo.':'Crie um raio, use a loja como centro ou clique no mapa.');
+  }
+  renderRadiusLegend();
+}
+function syncActiveRadiusFromControlsSilent(){
+  const z=radiusZone();
+  if(!z)return;
+  if($('radiusDriver')?.value) z.driver=$('radiusDriver').value;
+  if($('radiusKm')?.value) z.km=Math.max(Number($('radiusKm').value)||z.km||3,0.5);
+}
+async function refreshRadiusMap(){
+  initRadiusMap();
+  if(!radiusMap) return;
+  setBusy(true);
+  setRadiusMsg('Carregando pedidos pendentes no mapa...');
+  try{
+    if(S.start.trim()&&!startPoint()){
+      const g=await geocode(S.start);
+      if(g){S.startLat=g.lat;S.startLon=g.lon;}
+    }
+    await ensureDeliveryCoords(pendingMapDeliveries(), msg=>setRadiusMsg(msg));
+    if(!S.radiusZones.length&&storeDrivers().length) createRadiusZone();
+    save(); render(); drawRadiusMap();
+  }finally{
+    setBusy(false);
+  }
+}
+async function useStoreAsRadiusCenter(){
+  if(!S.start.trim()){alert('Defina o ponto de partida da loja.');return;}
+  setBusy(true);
+  setRadiusMsg('Localizando loja para centralizar o raio...');
+  try{
+    const g=startPoint()||await geocode(S.start);
+    if(!g){setRadiusMsg('Não localizei a loja agora.', 'err');return;}
+    S.startLat=g.lat;S.startLon=g.lon;
+    let z=radiusZone();
+    if(!z&&storeDrivers().length){createRadiusZone();z=radiusZone();}
+    if(z){z.lat=g.lat;z.lon=g.lon;}
+    save();render();await refreshRadiusMap();
+  }finally{setBusy(false);}
+}
+async function assignRadiusToDriver(){
+  syncActiveRadiusFromControlsSilent();
+  const z=radiusZone();
+  if(!z){alert('Crie ou selecione um raio.');return;}
+  const drv=S.drivers.find(d=>d.id===z.driver);
+  if(!drv){alert('Selecione um motoboy que esteja na loja.');return;}
+  if(driverStatus(drv)==='route'){alert('Este motoboy está em rota.');return;}
+  if(z.lat==null||z.lon==null){alert('Defina o centro do raio no mapa ou use a loja como centro.');return;}
+  setBusy(true);
+  setRadiusMsg('Selecionando pedidos dentro do raio ativo...');
+  try{
+    await ensureDeliveryCoords(queueDeliveries(), msg=>setRadiusMsg(msg));
+    const center={lat:z.lat,lon:z.lon};
+    const selected=queueDeliveries().filter(d=>d.lat!=null&&haversine(center,d)<=Number(z.km||3));
+    if(!selected.length){setRadiusMsg('Nenhum pedido da fila está dentro do raio ativo.', 'err');return;}
+    selected.forEach(d=>{d.driver=drv.id;d.ord=null;});
+    const ordered=buildOptimizedOrder(startPoint(),driverDeliveries(drv.id).filter(d=>!d.done));
+    ordered.forEach((d,i)=>d.ord=i+1);
+    const minutes=estimateRouteMinutes(startPoint(),ordered);
+    save();render();drawRadiusMap();
+    setRadiusMsg(`${selected.length} pedido(s) atribuídos para ${drv.name}.`);
+  }finally{
+    setBusy(false);
+  }
+}
+
+function radiusCenterLegacy(){
+  if(S.radiusLat!=null&&S.radiusLon!=null) return {lat:S.radiusLat,lon:S.radiusLon};
+  return startPoint();
+}
+function setRadiusCenterLegacy(lat,lon){
+  S.radiusLat=lat;
+  S.radiusLon=lon;
+  save();
+}
+function initRadiusMapLegacy(){
+  const el=$('radiusMap');
+  if(!el || radiusMap) return;
+  if(typeof L==='undefined'){
+    setRadiusMsg('Mapa não carregou. Verifique a conexão com a internet para carregar o Leaflet/OpenStreetMap.', 'err');
+    return;
+  }
+  const center=radiusCenter() || {lat:-22.9068,lon:-43.1729};
+  radiusMap=L.map('radiusMap').setView([center.lat,center.lon],12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    attribution:'&copy; OpenStreetMap contributors'
+  }).addTo(radiusMap);
+  radiusMap.on('click', e=>{
+    setRadiusCenter(e.latlng.lat,e.latlng.lng);
+    drawRadiusMap();
+  });
+  setTimeout(()=>radiusMap.invalidateSize(),100);
+}
+function clearRadiusLayersLegacy(){
+  if(!radiusMap) return;
+  radiusMarkers.forEach(m=>m.remove());
+  radiusMarkers=[];
+  if(radiusLayer){radiusLayer.remove();radiusLayer=null;}
+  if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
+}
+function drawRadiusMapLegacy(){
+  initRadiusMap();
+  if(!radiusMap) return;
+  clearRadiusLayers();
+  const center=radiusCenter();
+  const queue=queueDeliveries();
+  const km=Math.max(Number(S.radiusKm)||3,0.5);
+  if(center){
+    radiusLayer=L.circle([center.lat,center.lon],{radius:km*1000,color:'#E65100',weight:2,fillColor:'#E65100',fillOpacity:.08}).addTo(radiusMap);
+    radiusMap.setView([center.lat,center.lon],13);
+    radiusMarkers.push(L.marker([center.lat,center.lon]).addTo(radiusMap).bindPopup('Centro do raio'));
+  }
+  if(startPoint()){
+    const s=startPoint();
+    radiusMarkers.push(L.circleMarker([s.lat,s.lon],{radius:7,color:'#1F2933',fillColor:'#1F2933',fillOpacity:1}).addTo(radiusMap).bindPopup('Loja'));
+  }
+  const inside=[];
+  queue.forEach(d=>{
+    if(d.lat==null||d.lon==null) return;
+    const dist=center?haversine(center,d):Infinity;
+    const isIn=dist<=km;
+    if(isIn) inside.push(d);
+    const marker=L.circleMarker([d.lat,d.lon],{
+      radius:8,
+      color:isIn?'#2E7D32':'#5b6770',
+      fillColor:isIn?'#2E7D32':'#fff',
+      fillOpacity:isIn ? .9 : .65,
+      weight:2
+    }).addTo(radiusMap).bindPopup(`${esc(d.label||'Pedido')}<br>${esc(deliveryAddress(d))}<br>${isIn?'Dentro':'Fora'} do raio${isFinite(dist)?' - '+dist.toFixed(1).replace('.',',')+' km':''}`);
+    radiusMarkers.push(marker);
+  });
+  if(center&&inside.length){
+    const pts=[center,...inside.filter(d=>d.lat!=null).map(d=>({lat:d.lat,lon:d.lon}))];
+    radiusRoute=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:'#2E7D32',weight:3,dashArray:'6,6'}).addTo(radiusMap);
+  }
+  setRadiusMsg(center?`${inside.length} pedido(s) da fila dentro de ${km} km.`:'Clique no mapa ou use a loja como centro para criar o raio.');
+}
+async function refreshRadiusMapLegacy(){
+  initRadiusMap();
+  if(!radiusMap) return;
+  setBusy(true);
+  setRadiusMsg('Carregando pedidos da fila no mapa...');
+  try{
+    if(S.start.trim()&&!startPoint()){
+      const g=await geocode(S.start);
+      if(g){S.startLat=g.lat;S.startLon=g.lon;if(S.radiusLat==null){S.radiusLat=g.lat;S.radiusLon=g.lon;}}
+    }
+    await ensureDeliveryCoords(queueDeliveries(), msg=>setRadiusMsg(msg));
+    save();
+    drawRadiusMap();
+  }finally{
+    setBusy(false);
+  }
+}
+async function useStoreAsRadiusCenterLegacy(){
+  if(!S.start.trim()){alert('Defina o ponto de partida da loja.');return;}
+  setBusy(true);
+  setRadiusMsg('Localizando loja para centralizar o raio...');
+  try{
+    const g=startPoint()||await geocode(S.start);
+    if(!g){setRadiusMsg('Não localizei a loja agora.', 'err');return;}
+    S.startLat=g.lat;S.startLon=g.lon;S.radiusLat=g.lat;S.radiusLon=g.lon;
+    save();render();await refreshRadiusMap();
+  }finally{setBusy(false);}
+}
+async function assignRadiusToDriverLegacy(){
+  const drvId=$('radiusDriver')?.value;
+  const drv=S.drivers.find(d=>d.id===drvId);
+  if(!drv){alert('Selecione um motoboy que esteja na loja.');return;}
+  if(driverStatus(drv)==='route'){alert('Este motoboy está em rota.');return;}
+  const center=radiusCenter();
+  if(!center){alert('Defina o centro do raio no mapa ou use a loja como centro.');return;}
+  setBusy(true);
+  setRadiusMsg('Selecionando pedidos dentro do raio...');
+  try{
+    await ensureDeliveryCoords(queueDeliveries(), msg=>setRadiusMsg(msg));
+    const km=Math.max(Number(S.radiusKm)||3,0.5);
+    const selected=queueDeliveries().filter(d=>d.lat!=null&&haversine(center,d)<=km);
+    if(!selected.length){setRadiusMsg('Nenhum pedido da fila está dentro do raio escolhido.', 'err');return;}
+    selected.forEach(d=>{d.driver=drv.id;d.ord=null;});
+    const start=startPoint();
+    const ordered=buildOptimizedOrder(start,driverDeliveries(drv.id).filter(d=>!d.done));
+    ordered.forEach((d,i)=>d.ord=i+1);
+    save();render();drawRadiusMap();
+    setRadiusMsg(`${selected.length} pedido(s) atribuído(s) para ${drv.name}.`);
+  }finally{
+    setBusy(false);
+  }
+}
+
+async function optimizeLegacy(drvId){
+  const list=driverDeliveries(drvId).filter(d=>!d.done);
+  if(!list.length){alert('Sem entregas pendentes para otimizar.');return;}
+  if(!S.start.trim()){alert('Defina o ponto de partida (cozinha) na configuração.');return;}
+  $('prog').style.display='block';$('pbar').style.width='0%';
+  const need=list.filter(d=>d.lat==null);
+  let done=0;const tot=need.length+1;
+  const upd=t=>{done++;$('pbar').style.width=Math.round(done/tot*100)+'%';$('ptxt').textContent=t;};
+  $('ptxt').textContent='Localizando ponto de partida…';
+  const start=await geocode(S.start);await sleep(1100);upd('Localizando endereços…');
+  for(const d of need){ const g=await geocode(deliveryAddress(d)); if(g){d.lat=g.lat;d.lon=g.lon;} upd('Localizando… ('+done+'/'+need.length+')'); await sleep(1100); }
+  $('prog').style.display='none';
+  const geo=list.filter(d=>d.lat!=null), nogeo=list.filter(d=>d.lat==null);
+  let ordered=geo;
+  if(start&&geo.length){ ordered=twoOpt(start,nn(start,geo)); }
+  ordered.forEach((d,i)=>d.ord=i+1);
+  nogeo.forEach((d,i)=>d.ord=ordered.length+i+1);
+  // keep done ones after
+  driverDeliveries(drvId).filter(d=>d.done).forEach((d,i)=>d.ord=1000+i);
+  save();render();
+  if(nogeo.length) alert(nogeo.length+' endereço(s) não localizados no mapa — confira a escrita. Eles entraram no fim da rota.');
+}
+
+async function optimize(drvId){
+  const drv=S.drivers.find(d=>d.id===drvId);
+  if(drv && driverStatus(drv)==='route'){alert('Este entregador está em rota. Marque "Voltou para loja" antes de otimizar novamente.');return;}
+  const list=driverDeliveries(drvId).filter(d=>!d.done);
+  if(!list.length){alert('Sem entregas pendentes para otimizar.');return;}
+  if(!S.start.trim()){alert('Defina o ponto de partida (cozinha) na configuração.');return;}
+
+  setBusy(true);
+  setRouteMsg('');
+  $('prog').style.display='block';
+  $('pbar').style.width='0%';
+  const need=list.filter(d=>d.lat==null);
+  let done=0;
+  const total=need.length+1;
+  const upd=t=>{done++;$('pbar').style.width=Math.round(done/total*100)+'%';$('ptxt').textContent=t;};
+
+  try{
+    $('ptxt').textContent='Localizando ponto de partida...';
+    const start=await geocode(S.start);
+    if(start){S.startLat=start.lat;S.startLon=start.lon;}
+    await sleep(1100);
+    upd('Localizando endereços...');
+
+    for(let i=0;i<need.length;i++){
+      const d=need[i];
+      const g=await geocode(deliveryAddress(d));
+      if(g){d.lat=g.lat;d.lon=g.lon;}
+      upd('Localizando... ('+(i+1)+'/'+need.length+')');
+      await sleep(1100);
+    }
+
+    const geo=list.filter(d=>d.lat!=null), nogeo=list.filter(d=>d.lat==null);
+    const ordered=buildOptimizedOrder(start,list);
+    ordered.forEach((d,i)=>d.ord=i+1);
+    driverDeliveries(drvId).filter(d=>d.done).forEach((d,i)=>d.ord=1000+i);
+    save();
+    render();
+
+    const warnings=[];
+    if(!start) warnings.push('O ponto de partida não foi localizado; a ordem foi calculada só com as entregas encontradas.');
+    if(nogeo.length) warnings.push(nogeo.length+' entrega(s) não foram localizadas e ficaram no fim da rota.');
+    if(!geo.length) warnings.push('Não foi possível otimizar porque nenhuma entrega retornou coordenadas.');
+    if(warnings.length) setRouteMsg(warnings.join(' '), !geo.length?'err':'warn');
+  }catch(e){
+    render();
+    setRouteMsg('Não foi possível otimizar agora. A lista foi mantida na ordem atual; tente novamente mais tarde.', 'err');
+  }finally{
+    $('prog').style.display='none';
+    setBusy(false);
+  }
+}
+
+function mapsLink(points){const f=p=>p.lat!=null?p.lat+','+p.lon:encodeURIComponent(deliveryAddress(p)||p.raw||'');return 'https://www.google.com/maps/dir/?api=1&travelmode=driving&origin='+f(points[0])+'&destination='+f(points[points.length-1])+(points.length>2?'&waypoints='+points.slice(1,-1).map(f).join('|'):'');}
+function openMaps(drvId){
+  const list=driverDeliveries(drvId).filter(d=>!d.done);
+  if(!list.length){alert('Sem entregas pendentes.');return;}
+  if(!S.start.trim()){alert('Defina o ponto de partida (cozinha) na configuração.');return;}
+  const seq=[{address:S.start,lat:null,lon:null}, ...list];
+  const BATCH=10;let idx=0,bi=0,html='<p style="font-size:12px;color:var(--gray);margin:6px 0 2px">Rota de <b>'+esc(driverName(drvId))+'</b> — abra cada trecho na ordem:</p>';
+  while(idx<seq.length-1){const origin=idx===0?seq[0]:seq[idx];const slice=[origin,...seq.slice(idx+1,idx+BATCH)];bi++;html+=`<a href="${mapsLink(slice)}" target="_blank" rel="noopener">▶ ${esc(driverName(drvId))} — trecho ${bi} (${slice.length-1})</a>`;idx+=BATCH-1;}
+  $('links').innerHTML=html; $('links').scrollIntoView({behavior:'smooth'});
+}
+function driverName(id){const d=S.drivers.find(x=>x.id===id);return d?d.name:'';}
+
+/* ---------------- IMPRESSÃO ---------------- */
+function printRomaneio(drvId){
+  const list=driverDeliveries(drvId);
+  const totFee=list.reduce((s,d)=>s+(d.fee||0),0);
+  const totCash=list.reduce((s,d)=>s+(d.cash||0),0);
+  let body='';
+  list.forEach((d,i)=>{
+    body+=`<div class="pstop"><span class="pbox"></span><span class="pnum">${i+1}</span>${esc(deliveryAddress(d))}`;
+    body+=`<br><span style="font-size:11px">${d.label?esc(d.label)+' · ':''}Taxa ${money(d.fee)}${d.cash?' · DINHEIRO '+money(d.cash):''}</span></div>`;
+  });
+  $('printArea').innerHTML=`
+    <div class="pcenter pbig">OUTFOOD</div>
+    <div class="pcenter">Romaneio de Entregas</div>
+    <div class="pline"></div>
+    <div>Entregador: <b>${esc(driverName(drvId))}</b></div>
+    <div>Data: ${today()}</div>
+    <div>Entregas: ${list.length}</div>
+    <div class="pline"></div>
+    ${body||'<div>Sem entregas</div>'}
+    <div class="pline"></div>
+    <div>Total taxas: <b>${money(totFee)}</b></div>
+    ${totCash?`<div>Total dinheiro a receber: <b>${money(totCash)}</b></div>`:''}
+    <div class="pline"></div>
+    <div class="pcenter" style="font-size:11px">Confira cada entrega no quadrinho ☐</div>`;
+  doPrint();
+}
+function printClose(){
+  let rows='',gFee=0,gCash=0,gN=0,gD=0;
+  S.drivers.forEach(drv=>{
+    const list=driverDeliveries(drv.id);
+    const fee=list.reduce((s,d)=>s+(d.fee||0),0),cash=list.reduce((s,d)=>s+(d.cash||0),0),dn=list.filter(d=>d.done).length;
+    gFee+=fee;gCash+=cash;gN+=list.length;gD+=dn;
+    rows+=`<tr><td>${esc(drv.name)}</td><td>${dn}/${list.length}</td><td>${money(fee)}</td><td>${money(cash)}</td></tr>`;
+  });
+  $('printArea').innerHTML=`
+    <div class="pcenter pbig">OUTFOOD</div>
+    <div class="pcenter">Fechamento de Caixa</div>
+    <div>Data: ${today()}</div>
+    <div class="pline"></div>
+    <table><thead><tr><th>Motoboy</th><th>Entr.</th><th>Taxas</th><th>Dinh.</th></tr></thead>
+    <tbody>${rows}<tr><td><b>TOTAL</b></td><td><b>${gD}/${gN}</b></td><td><b>${money(gFee)}</b></td><td><b>${money(gCash)}</b></td></tr></tbody></table>
+    <div class="pline"></div>
+    <div>A pagar aos entregadores (taxas): <b>${money(gFee)}</b></div>
+    <div>Dinheiro recebido na rua: <b>${money(gCash)}</b></div>
+    <div class="pline"></div>
+    <div class="pcenter" style="font-size:11px">Outfood · gerado pelo painel</div>`;
+  doPrint();
+}
+function doPrint(){
+  let st=$('pageStyle'); if(!st){st=document.createElement('style');st.id='pageStyle';document.head.appendChild(st);}
+  st.textContent=`@media print{@page{size:${S.pw}mm auto;margin:3mm}}`;
+  applyPW();
+  window.print();
+}
+
+/* ---------------- UTIL ---------------- */
+function exportCSVLegacy(){
+  const h=['Data','Entregador','Cliente/Pedido','Endereço','Taxa','Dinheiro','Entregue'];
+  const rows=S.deliveries.map(d=>[today(),driverName(d.driver)||'Fila da loja',d.label||'',deliveryAddress(d),String(d.fee).replace('.',','),String(d.cash||0).replace('.',','),d.done?'Sim':'Não']);
+  const csv=[h,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const blob=new Blob(['﻿'+csv],{type:'text/csv;charset=utf-8'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='outfood-entregas-'+today().replace(/\//g,'-')+'.csv';a.click();
+}
+function exportCSV(){
+  const h=['Data','Tipo','Entregador','Cliente/Pedido','Endereço','Taxa','Dinheiro','Entregue'];
+  const rows=S.deliveries.map(d=>[
+    today(),
+    isPlatformDelivery(d)?'Entregador da plataforma':'Motoboy da loja',
+    isPlatformDelivery(d)?'Retirada no restaurante':(driverName(d.driver)||'Fila da loja'),
+    d.label||'',
+    deliveryAddress(d),
+    String(d.fee||0).replace('.',','),
+    String(d.cash||0).replace('.',','),
+    d.done?'Sim':'Não'
+  ]);
+  const csv=[h,...rows].map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(';')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url;
+  a.download='outfood-entregas-'+today().replace(/\//g,'-')+'.csv';
+  a.style.display='none';
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(()=>{URL.revokeObjectURL(url);a.remove();},0);
+}
+function newDay(){
+  if(!confirm('Começar um novo dia? As entregas de hoje serão apagadas (os entregadores e a configuração permanecem). Exporte o CSV antes se quiser guardar.'))return;
+  S.deliveries=[]; save(); render();
+}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+load(); render(); setTimeout(()=>{initRadiusMap(); drawRadiusMap();},0); setInterval(render,60000);
+</script>
+</body>
+</html>
