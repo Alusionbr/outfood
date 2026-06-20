@@ -158,6 +158,8 @@
       <div><label>Raio ativo</label><select id="radiusZone" onchange="selectRadiusZone(this.value)"></select></div>
       <div><label>Motoboy para receber pedidos no raio</label><select id="radiusDriver" onchange="syncActiveRadiusFromControls()"></select></div>
       <div><label>Raio da rota (km)</label><input id="radiusKm" type="number" min="0.5" step="0.5" value="3" oninput="setActiveRadiusSize(this.value)"><input id="radiusKmSlider" type="range" min="0.5" max="20" step="0.5" value="3" oninput="setActiveRadiusSize(this.value)"></div>
+      <div><label><input id="useRoadRoute" type="checkbox" onchange="save(); drawRadiusMap()"> Rota por ruas</label></div>
+      <div><label><input id="useTraffic" type="checkbox" onchange="save(); drawRadiusMap()"> Trânsito</label></div>
       <button class="btn-s" onclick="createRadiusZone()">Criar raio</button>
       <button class="btn-r" onclick="removeRadiusZone()">Remover raio</button>
       <button class="btn-s" onclick="refreshRadiusMap()">Carregar pedidos</button>
@@ -224,10 +226,10 @@ const DISTRICTS=[
   {name:'Nova Iguacu',lat:-22.7592,lon:-43.4511,city:'Nova Iguacu - RJ'}
 ];
 const STREET_BANK={
-  Anchieta:['Estrada Marechal Alencastro','Rua Cardoso de Castro','Rua Japoara','Rua Vitor Meireles','Rua General Otavio Povoa','Rua Carius','Rua Alcobaca','Rua Quintao','Rua Flora Rica','Rua Itapemirim'],
+  Anchieta:['Estrada Marechal Alencastro','Rua Cardoso de Castro','Rua Japoara','Rua Vitor Meireles','Rua General Otavio Povoa','Rua Carius','Rua Alcobaca','Rua Quintao','Rua Flora Rica','Rua Itapemirim','Rua Genova'],
   'Parque Anchieta':['Avenida Nazare','Rua Alcobaca','Rua Itapemirim','Rua Carius','Rua Flora Rica','Rua Canitar','Rua Ipiranga','Rua Jornalista Antonio de Freitas','Rua General Otavio Povoa'],
   'Ricardo de Albuquerque':['Estrada Marechal Alencastro','Rua Japoara','Rua Capitao Menezes','Rua Camboata','Rua Antonio Austregesilo','Rua Agostinho Barbalho','Rua Taciba','Rua General Rondon','Rua da Democracia'],
-  Guadalupe:['Avenida Brasil','Avenida Pastor Martin Luther King Junior','Estrada do Camboata','Rua Marcos de Macedo','Rua Luis Coutinho Cavalcanti','Rua Francisco Portela','Rua General Savaget','Rua Engenheiro Claudio Ganns','Rua Jornalista Hermano Requiao'],
+  Guadalupe:['Avenida Brasil','Avenida Pastor Martin Luther King Junior','Estrada do Camboata','Rua Marcos de Macedo','Rua Luis Coutinho Cavalcanti','Rua Francisco Portela','Rua General Savaget','Rua Engenheiro Claudio Ganns','Rua Jornalista Hermano Requiao','Rua Genova'],
   Nilopolis:['Estrada Mirandela','Avenida Getulio Vargas','Rua Pedro Alvares Cabral','Rua Antonio Joao Mendonca','Rua Joao Pessoa','Rua Pracinha Wallace Paes Leme','Rua Coronel Franca Leite','Rua Professor Alfredo Goncalves Filgueiras','Rua General Mena Barreto'],
   'Centro de Nilopolis':['Estrada Mirandela','Avenida Getulio Vargas','Rua Pedro Alvares Cabral','Rua Joao Pessoa','Rua Antonio Joao Mendonca','Rua General Mena Barreto'],
   Olinda:['Avenida Getulio Vargas','Rua Joao Rodrigues da Cunha','Rua Vereador Francisco Nunes','Rua Coronel Jose Muniz','Rua Antonio Cardoso Leal'],
@@ -258,7 +260,7 @@ const STREET_BANK={
   Heliopolis:['Avenida Joaquim da Costa Lima','Rua Heliopolis','Rua Itaiara','Rua Floripes Rocha','Rua Coronel Antonio Fernandes'],
   'Nova Iguacu':['Via Light','Rua Doutor Barros Junior','Rua Otavio Tarquino','Avenida Governador Amaral Peixoto','Rua Coronel Bernardino de Melo']
 };
-let S={start:'',city:'',defFee:3,avgSpeed:22,stopMin:4,deliveryRadiusKm:20,radiusKm:3,pw:'80',drivers:[],deliveries:[],radiusZones:[],activeRadiusId:null};
+let S={start:'',city:'',defFee:3,avgSpeed:22,stopMin:4,deliveryRadiusKm:20,radiusKm:3,useRoadRoute:true,useTraffic:false,streetCache:[],pw:'80',drivers:[],deliveries:[],radiusZones:[],activeRadiusId:null};
 let radiusMap=null, radiusLayer=null, radiusMarkers=[], radiusRoute=null, radiusZoneLayers=[];
 const RADIUS_COLORS=['#2E7D32','#E65100','#1565C0','#6A1B9A','#00838F','#AD1457'];
 const contentMM=()=>(S.pw==='58'?'50':'72');
@@ -333,6 +335,10 @@ function streetSuggestions(){
   const districts=selected ? [selected] : [];
   nearbyDistricts().forEach(d=>districts.push(d.name));
   const unique=new Map();
+  (S.streetCache||[]).forEach(st=>{
+    const key=normText(st);
+    if((!typed || key.includes(typed)) && !unique.has(key)) unique.set(key, st);
+  });
   districts.forEach(name=>{
     const info=districtInfo(name);
     const list=STREET_BANK[name]||STREET_BANK[info?.name]||[];
@@ -348,13 +354,39 @@ function renderStreetSuggestions(){
   if(!dl) return;
   dl.innerHTML=streetSuggestions().map(st=>`<option value="${esc(st)}"></option>`).join('');
 }
+async function fetchNearbyStreets(){
+  const start=startPoint();
+  if(!start) return [];
+  const radiusMeters=Math.min(Math.round(deliveryRadiusKm()*1000),20000);
+  const query=`[out:json][timeout:25];way["highway"]["name"](around:${radiusMeters},${start.lat},${start.lon});out tags;`;
+  try{
+    setRouteMsg(`Carregando ruas do raio de ${Math.round(radiusMeters/1000)} km...`);
+    const r=await fetch('https://overpass-api.de/api/interpreter?data='+encodeURIComponent(query),{headers:{Accept:'application/json'}});
+    const j=await r.json();
+    const names=[...(j.elements||[])]
+      .map(e=>e.tags&&e.tags.name)
+      .filter(Boolean)
+      .filter(n=>/^((rua|avenida|estrada|travessa|praça|alameda|rodovia|viela|beco)\b)/i.test(n));
+    const unique=[...new Map(names.map(n=>[normText(n),n])).values()].sort((a,b)=>a.localeCompare(b,'pt-BR')).slice(0,800);
+    if(unique.length){
+      S.streetCache=unique;
+      save();
+      renderStreetSuggestions();
+      return unique;
+    }
+  }catch(e){}
+  return [];
+}
 async function updateNearbyDistricts(){
   if(!S.start.trim()){alert('Defina o ponto de partida da loja antes de filtrar bairros próximos.');return;}
   setRouteMsg('Atualizando bairros próximos da loja...');
   const g=await geocode(S.start);
   if(g){
     S.startLat=g.lat; S.startLon=g.lon; save(); render();
-    setRouteMsg(`Bairros e ruas filtrados em ate ${deliveryRadiusKm().toFixed(0)} km da loja.`);
+    const streets=await fetchNearbyStreets();
+    render();
+    drawRadiusMap();
+    setRouteMsg(`Loja localizada no mapa. Bairros filtrados em ate ${deliveryRadiusKm().toFixed(0)} km; ${streets.length||S.streetCache.length||0} ruas carregadas para autocomplete.`);
   }else{
     renderDistrictOptions();
     setRouteMsg('Não localizei a loja agora. Mostrei a lista completa de bairros.', 'err');
@@ -402,13 +434,16 @@ function load(){
   S.stopMin=Number(S.stopMin)||4;
   S.deliveryRadiusKm=Math.max(Number(S.deliveryRadiusKm)||20,1);
   S.radiusKm=Number(S.radiusKm)||3;
+  S.useRoadRoute=S.useRoadRoute!==false;
+  S.useTraffic=!!S.useTraffic;
+  S.streetCache=Array.isArray(S.streetCache)?S.streetCache:[];
   S.drivers.forEach(d=>{ if(!d.status)d.status='store'; });
   S.deliveries.forEach((d,i)=>{ if(!d.queuedAt)d.queuedAt=Date.now()+i; if(!d.mode)d.mode='store'; });
 }
 function save(){
   const nextStart=$('start').value;
-  if(nextStart!==S.start){S.startLat=null;S.startLon=null;}
-  S.start=nextStart; S.city=$('city').value; S.defFee=parseFloat($('defFee').value)||0; S.avgSpeed=parseFloat($('avgSpeed').value)||22; S.stopMin=parseFloat($('stopMin').value)||4; S.deliveryRadiusKm=Math.max(parseFloat($('deliveryRadiusKm')?.value)||20,1); S.radiusKm=parseFloat($('radiusKm')?.value)||3; S.pw=$('pw').value;
+  if(nextStart!==S.start){S.startLat=null;S.startLon=null;S.streetCache=[];}
+  S.start=nextStart; S.city=$('city').value; S.defFee=parseFloat($('defFee').value)||0; S.avgSpeed=parseFloat($('avgSpeed').value)||22; S.stopMin=parseFloat($('stopMin').value)||4; S.deliveryRadiusKm=Math.max(parseFloat($('deliveryRadiusKm')?.value)||20,1); S.radiusKm=parseFloat($('radiusKm')?.value)||3; S.useRoadRoute=$('useRoadRoute')?.checked!==false; S.useTraffic=!!$('useTraffic')?.checked; S.pw=$('pw').value;
   try{localStorage.setItem('outfood_ops',JSON.stringify(S));}catch(e){}
   applyPW();
 }
@@ -560,6 +595,8 @@ function renderRadiusDriverOptions(){
 function render(){
   $('hd').textContent='Data: '+today()+' · '+S.deliveries.length+' entregas · '+storeDrivers().length+' na loja · '+S.drivers.filter(d=>driverStatus(d)==='route').length+' em rota';
   $('start').value=S.start||''; $('city').value=S.city||''; $('defFee').value=S.defFee; $('avgSpeed').value=S.avgSpeed; $('stopMin').value=S.stopMin; $('deliveryRadiusKm').value=S.deliveryRadiusKm; $('radiusKm').value=S.radiusKm; if($('radiusKmSlider')) $('radiusKmSlider').value=Math.min(Number(S.radiusKm)||3,20); $('pw').value=S.pw;
+  if($('useRoadRoute')) $('useRoadRoute').checked=S.useRoadRoute!==false;
+  if($('useTraffic')) $('useTraffic').checked=!!S.useTraffic;
   toggleDeliveryModeFields();
   applyPW();
   renderDistrictOptions();
@@ -837,6 +874,28 @@ function bagMarkerIcon(color, assigned){
     popupAnchor:[0,-32]
   });
 }
+function drawFallbackRoute(points,color){
+  if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
+  radiusRoute=L.polyline(points.map(p=>[p.lat,p.lon]),{color,weight:3,dashArray:'6,6'}).addTo(radiusMap);
+}
+async function drawRoadRoute(zoneId, points, color){
+  if(!S.useRoadRoute || points.length<2 || points.length>24){
+    drawFallbackRoute(points,color);
+    return;
+  }
+  const coords=points.map(p=>`${p.lon},${p.lat}`).join(';');
+  try{
+    const r=await fetch('https://router.project-osrm.org/route/v1/driving/'+coords+'?overview=full&geometries=geojson&steps=false');
+    const j=await r.json();
+    if(!radiusMap || !radiusZone() || radiusZone().id!==zoneId) return;
+    if(j.code==='Ok' && j.routes && j.routes[0] && j.routes[0].geometry){
+      if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
+      radiusRoute=L.geoJSON(j.routes[0].geometry,{style:{color,weight:4,opacity:.9}}).addTo(radiusMap);
+      return;
+    }
+  }catch(e){}
+  if(radiusMap && radiusZone() && radiusZone().id===zoneId) drawFallbackRoute(points,color);
+}
 function drawRadiusMap(){
   initRadiusMap();
   if(!radiusMap) return;
@@ -896,12 +955,12 @@ function drawRadiusMap(){
       const routeStart=startPoint()||{lat:active.lat,lon:active.lon};
       const ordered=buildOptimizedOrder(routeStart,activeInside);
       const pts=[routeStart,...ordered.map(d=>({lat:d.lat,lon:d.lon}))];
-      radiusRoute=L.polyline(pts.map(p=>[p.lat,p.lon]),{color:zoneColor(active),weight:3,dashArray:'6,6'}).addTo(radiusMap);
+      drawRoadRoute(active.id,pts,zoneColor(active));
     }
     const queueInside=queue.filter(d=>d.lat!=null&&haversine({lat:active.lat,lon:active.lon},d)<=Number(active.km||3)).length;
     const minutes=estimateRouteMinutes(startPoint()||{lat:active.lat,lon:active.lon},activeInside);
     const drv=driverName(active.driver)||'sem motoboy';
-    setRadiusMsg(`${activeInside.length} pedido(s) pendente(s) no raio ativo para ${drv}. ${queueInside} ainda na fila para atribuir. Tempo estimado: ${fmtMinutes(minutes)}.`);
+    setRadiusMsg(`${activeInside.length} pedido(s) pendente(s) no raio ativo para ${drv}. ${queueInside} ainda na fila para atribuir. Tempo estimado: ${fmtMinutes(minutes)}.${S.useRoadRoute?' Rota por ruas ligada.':' Rota estimada por distância.'}${S.useTraffic?' Trânsito real exige API compatível configurada.':''}`);
   }else{
     setRadiusMsg(S.radiusZones.length?'Selecione um raio ativo.':'Crie um raio, use a loja como centro ou clique no mapa.');
   }
