@@ -70,6 +70,9 @@
   .map-legend{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;font-size:12px;color:var(--gray)}
   .map-legend span{display:inline-flex;align-items:center;gap:5px;background:#f7faf7;border:1px solid var(--border);border-radius:20px;padding:3px 8px}
   .map-legend i{display:inline-block;width:10px;height:10px;border-radius:50%}
+  .zone-center-icon{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--zone,#2E7D32);border:3px solid #fff;box-shadow:0 2px 10px rgba(31,41,51,.35);display:grid;place-items:center;cursor:move}
+  .zone-center-icon.active{box-shadow:0 0 0 4px rgba(230,81,0,.22),0 3px 12px rgba(31,41,51,.38)}
+  .zone-center-icon span{transform:rotate(45deg);color:#fff;font-weight:800;font-size:14px;line-height:1}
   .bag-icon{position:relative;width:28px;height:28px;border:3px solid var(--bag,#2E7D32);border-radius:7px 7px 8px 8px;background:#fff;box-shadow:0 2px 7px rgba(31,41,51,.32)}
   .bag-icon:before{content:"";position:absolute;left:6px;top:-10px;width:10px;height:9px;border:3px solid var(--bag,#2E7D32);border-bottom:0;border-radius:10px 10px 0 0;background:transparent}
   .bag-icon:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid var(--bag,#2E7D32)}
@@ -112,9 +115,9 @@
     <h2>Configuração</h2>
     <div class="grid cfg">
       <div><label>Ponto de partida (cozinha/loja)</label><input id="start" placeholder="Rua, nº, bairro, cidade" oninput="save()"></div>
-      <div><label>Bairros próximos</label><button class="btn-s" onclick="updateNearbyDistricts()">Atualizar bairros próximos</button></div>
+      <div><label>Bairros e ruas do raio da loja</label><button class="btn-s" onclick="updateNearbyDistricts()">Atualizar bairros e ruas</button></div>
       <div><label>Cidade / UF padrão</label><input id="city" placeholder="Ex.: Rio de Janeiro - RJ" oninput="save()"></div>
-      <div><label>Raio de atendimento do restaurante (km)</label><input id="deliveryRadiusKm" type="number" min="1" step="1" value="20" title="Define quais bairros e ruas aparecem para cadastro de pedidos" oninput="save(); renderDistrictOptions(); renderStreetSuggestions();"></div>
+      <div><label>Raio de atendimento do restaurante (km)</label><input id="deliveryRadiusKm" type="number" min="1" step="1" value="20" title="Define quais bairros e ruas aparecem para cadastro de pedidos" oninput="setDeliveryRadius(this.value)"></div>
       <div><label>Taxa de entrega padrão (R$)</label><input id="defFee" type="number" step="0.50" value="3" oninput="save()"></div>
       <div><label>Velocidade média (km/h)</label><input id="avgSpeed" type="number" min="5" step="1" value="22" oninput="save()"></div>
       <div><label>Tempo por entrega (min)</label><input id="stopMin" type="number" min="0" step="1" value="4" oninput="save()"></div>
@@ -169,7 +172,7 @@
     <div id="radiusMsg" class="notice"></div>
     <div id="radiusMap"></div>
     <div id="radiusLegend" class="map-legend"></div>
-    <div class="map-note">Arraste o pino colorido para mover o raio ativo. Ajuste o tamanho no campo "Raio da rota". Pedidos pendentes aparecem no mapa; ao marcar como entregue, eles somem da visualização. A atribuição do raio usa apenas pedidos que ainda estão na fila da loja.</div>
+    <div class="map-note">As ruas do autocomplete vêm do raio de atendimento do restaurante. Os raios coloridos são áreas de rota dos motoboys: arraste o pino numerado para mover, ajuste o tamanho em "Raio da rota" e atribua apenas pedidos ainda na fila.</div>
   </div>
 
   <!-- FECHAMENTO -->
@@ -353,6 +356,15 @@ function renderStreetSuggestions(){
   const dl=$('streetSuggestions');
   if(!dl) return;
   dl.innerHTML=streetSuggestions().map(st=>`<option value="${esc(st)}"></option>`).join('');
+}
+function setDeliveryRadius(value){
+  const next=Math.max(Number(value)||20,1);
+  if(next!==S.deliveryRadiusKm) S.streetCache=[];
+  S.deliveryRadiusKm=next;
+  save();
+  renderDistrictOptions();
+  renderStreetSuggestions();
+  setRouteMsg(`Raio da loja alterado para ${next.toFixed(0)} km. Clique em "Atualizar bairros e ruas" para buscar ruas reais desse raio.`);
 }
 async function fetchNearbyStreets(){
   const start=startPoint();
@@ -836,8 +848,13 @@ function initRadiusMap(){
   radiusMap=L.map('radiusMap').setView([center.lat,center.lon],12);
   L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(radiusMap);
   radiusMap.on('click', e=>{
+    if(!radiusZone()){
+      setRadiusMsg('Crie um raio para motoboy antes de escolher a posição no mapa.');
+      return;
+    }
     setRadiusCenter(e.latlng.lat,e.latlng.lng);
     drawRadiusMap();
+    setRadiusMsg('Centro do raio ativo movido para o ponto clicado.');
   });
   setTimeout(()=>radiusMap.invalidateSize(),100);
 }
@@ -872,6 +889,15 @@ function bagMarkerIcon(color, assigned){
     iconSize:[28,36],
     iconAnchor:[14,34],
     popupAnchor:[0,-32]
+  });
+}
+function zoneCenterIcon(color, idx, active){
+  return L.divIcon({
+    className:'zone-center-wrap',
+    html:`<div class="zone-center-icon ${active?'active':''}" style="--zone:${esc(color)}"><span>${idx+1}</span></div>`,
+    iconSize:[34,34],
+    iconAnchor:[17,32],
+    popupAnchor:[0,-30]
   });
 }
 function drawFallbackRoute(points,color){
@@ -911,12 +937,13 @@ function drawRadiusMap(){
     const isActive=z.id===S.activeRadiusId;
     const circle=L.circle([z.lat,z.lon],{radius:(Number(z.km)||3)*1000,color,weight:isActive?4:2,fillColor:color,fillOpacity:isActive ? .12 : .06}).addTo(radiusMap);
     circle.on('click',()=>selectRadiusZone(z.id));
-    const marker=L.marker([z.lat,z.lon],{draggable:true}).addTo(radiusMap).bindPopup(`Raio ${i+1}<br>${esc(driverName(z.driver)||'Sem motoboy')}<br>${Number(z.km||3).toFixed(1).replace('.',',')} km<br>Arraste para mover`);
+    const marker=L.marker([z.lat,z.lon],{draggable:true,icon:zoneCenterIcon(color,i,isActive),title:'Arraste para mover o raio'}).addTo(radiusMap).bindPopup(`Raio ${i+1}<br>${esc(driverName(z.driver)||'Sem motoboy')}<br>${Number(z.km||3).toFixed(1).replace('.',',')} km<br>Arraste este pino para mover`);
     marker.on('click',()=>selectRadiusZone(z.id));
     marker.on('dragstart',()=>{
       S.activeRadiusId=z.id;
       applyActiveRadiusToControls();
       renderRadiusZoneOptions();
+      setRadiusMsg(`Movendo raio ${i+1}. Solte o pino para recalcular pedidos e tempo.`);
     });
     marker.on('drag',e=>{
       const p=e.target.getLatLng();
@@ -927,6 +954,7 @@ function drawRadiusMap(){
       const p=e.target.getLatLng();
       z.lat=p.lat; z.lon=p.lng;
       save(); renderRadiusZoneOptions(); applyActiveRadiusToControls(); drawRadiusMap();
+      setRadiusMsg(`Raio ${i+1} reposicionado. Pedidos e tempo foram recalculados.`);
     });
     radiusZoneLayers.push(circle,marker);
     counts.set(z.id,0);
