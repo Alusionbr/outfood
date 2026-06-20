@@ -73,6 +73,8 @@
   .zone-center-icon{width:34px;height:34px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);background:var(--zone,#2E7D32);border:3px solid #fff;box-shadow:0 2px 10px rgba(31,41,51,.35);display:grid;place-items:center;cursor:move}
   .zone-center-icon.active{box-shadow:0 0 0 4px rgba(230,81,0,.22),0 3px 12px rgba(31,41,51,.38)}
   .zone-center-icon span{transform:rotate(45deg);color:#fff;font-weight:800;font-size:14px;line-height:1}
+  .store-icon{width:34px;height:34px;border-radius:9px;background:#1F2933;border:3px solid #fff;box-shadow:0 2px 10px rgba(31,41,51,.35);display:grid;place-items:center;color:#fff;font-size:18px;font-weight:800}
+  .store-icon:before{content:"";position:absolute;top:-8px;left:5px;width:20px;height:9px;background:#E65100;border-radius:8px 8px 2px 2px;border:2px solid #fff}
   .bag-icon{position:relative;width:28px;height:28px;border:3px solid var(--bag,#2E7D32);border-radius:7px 7px 8px 8px;background:#fff;box-shadow:0 2px 7px rgba(31,41,51,.32)}
   .bag-icon:before{content:"";position:absolute;left:6px;top:-10px;width:10px;height:9px;border:3px solid var(--bag,#2E7D32);border-bottom:0;border-radius:10px 10px 0 0;background:transparent}
   .bag-icon:after{content:"";position:absolute;left:50%;bottom:-8px;margin-left:-5px;border-left:5px solid transparent;border-right:5px solid transparent;border-top:8px solid var(--bag,#2E7D32)}
@@ -117,7 +119,7 @@
       <div><label>Ponto de partida (cozinha/loja)</label><input id="start" placeholder="Rua, nº, bairro, cidade" oninput="save()"></div>
       <div><label>Bairros e ruas do raio da loja</label><button class="btn-s" onclick="updateNearbyDistricts()">Atualizar bairros e ruas</button></div>
       <div><label>Cidade / UF padrão</label><input id="city" placeholder="Ex.: Rio de Janeiro - RJ" oninput="save()"></div>
-      <div><label>Raio de atendimento do restaurante (km)</label><input id="deliveryRadiusKm" type="number" min="1" step="1" value="20" title="Define quais bairros e ruas aparecem para cadastro de pedidos" oninput="setDeliveryRadius(this.value)"></div>
+      <div><label>Raio de atendimento do restaurante (km)</label><input id="deliveryRadiusKm" type="number" min="1" step="1" value="10" title="Define quais bairros e ruas aparecem para cadastro de pedidos" oninput="setDeliveryRadius(this.value)"></div>
       <div><label>Taxa de entrega padrão (R$)</label><input id="defFee" type="number" step="0.50" value="3" oninput="save()"></div>
       <div><label>Velocidade média (km/h)</label><input id="avgSpeed" type="number" min="5" step="1" value="22" oninput="save()"></div>
       <div><label>Tempo por entrega (min)</label><input id="stopMin" type="number" min="0" step="1" value="4" oninput="save()"></div>
@@ -165,6 +167,7 @@
       <div><label><input id="useTraffic" type="checkbox" onchange="save(); drawRadiusMap()"> Trânsito</label></div>
       <button class="btn-s" onclick="createRadiusZone()">Criar raio</button>
       <button class="btn-r" onclick="removeRadiusZone()">Remover raio</button>
+      <button class="btn-s" onclick="centerMapOnStore(true)">Centralizar restaurante</button>
       <button class="btn-s" onclick="refreshRadiusMap()">Carregar pedidos</button>
       <button class="btn-s" onclick="useStoreAsRadiusCenter()">Usar loja como centro</button>
       <button class="btn" onclick="assignRadiusToDriver()">Atribuir pedidos no raio</button>
@@ -172,7 +175,7 @@
     <div id="radiusMsg" class="notice"></div>
     <div id="radiusMap"></div>
     <div id="radiusLegend" class="map-legend"></div>
-    <div class="map-note">As ruas do autocomplete vêm do raio de atendimento do restaurante. Os raios coloridos são áreas de rota dos motoboys: arraste o pino numerado para mover, ajuste o tamanho em "Raio da rota" e atribua apenas pedidos ainda na fila.</div>
+    <div class="map-note">Centralize no restaurante para abrir o mapa no raio de atendimento de 10 km. O ponto comercial mostra a loja, as bags mostram pedidos pendentes, os raios coloridos organizam motoboys e a linha mostra a rota visível da seleção ativa.</div>
   </div>
 
   <!-- FECHAMENTO -->
@@ -263,8 +266,8 @@ const STREET_BANK={
   Heliopolis:['Avenida Joaquim da Costa Lima','Rua Heliopolis','Rua Itaiara','Rua Floripes Rocha','Rua Coronel Antonio Fernandes'],
   'Nova Iguacu':['Via Light','Rua Doutor Barros Junior','Rua Otavio Tarquino','Avenida Governador Amaral Peixoto','Rua Coronel Bernardino de Melo']
 };
-let S={start:'',city:'',defFee:3,avgSpeed:22,stopMin:4,deliveryRadiusKm:20,radiusKm:3,useRoadRoute:true,useTraffic:false,streetCache:[],pw:'80',drivers:[],deliveries:[],radiusZones:[],activeRadiusId:null};
-let radiusMap=null, radiusLayer=null, radiusMarkers=[], radiusRoute=null, radiusZoneLayers=[];
+let S={start:'',city:'',defFee:3,avgSpeed:22,stopMin:4,deliveryRadiusKm:10,radiusKm:3,useRoadRoute:true,useTraffic:false,streetCache:[],pw:'80',drivers:[],deliveries:[],radiusZones:[],activeRadiusId:null};
+let radiusMap=null, radiusLayer=null, radiusMarkers=[], radiusRoute=null, radiusZoneLayers=[], storeMapLayers=[];
 const RADIUS_COLORS=['#2E7D32','#E65100','#1565C0','#6A1B9A','#00838F','#AD1457'];
 const contentMM=()=>(S.pw==='58'?'50':'72');
 function applyPW(){document.documentElement.style.setProperty('--pw',contentMM()+'mm');}
@@ -309,7 +312,7 @@ function cityForDistrict(name){
   return (d&&d.city)||((S.city||'').trim());
 }
 function deliveryRadiusKm(){
-  return Math.max(Number(S.deliveryRadiusKm)||20,1);
+  return Math.max(Number(S.deliveryRadiusKm)||10,1);
 }
 function nearbyDistricts(){
   const start=startPoint();
@@ -358,7 +361,7 @@ function renderStreetSuggestions(){
   dl.innerHTML=streetSuggestions().map(st=>`<option value="${esc(st)}"></option>`).join('');
 }
 function setDeliveryRadius(value){
-  const next=Math.max(Number(value)||20,1);
+  const next=Math.max(Number(value)||10,1);
   if(next!==S.deliveryRadiusKm) S.streetCache=[];
   S.deliveryRadiusKm=next;
   save();
@@ -398,6 +401,7 @@ async function updateNearbyDistricts(){
     const streets=await fetchNearbyStreets();
     render();
     drawRadiusMap();
+    fitMapToStoreRadius();
     setRouteMsg(`Loja localizada no mapa. Bairros filtrados em ate ${deliveryRadiusKm().toFixed(0)} km; ${streets.length||S.streetCache.length||0} ruas carregadas para autocomplete.`);
   }else{
     renderDistrictOptions();
@@ -444,7 +448,7 @@ function load(){
   if(!Number.isFinite(S.defFee)) S.defFee=3;
   S.avgSpeed=Number(S.avgSpeed)||22;
   S.stopMin=Number(S.stopMin)||4;
-  S.deliveryRadiusKm=Math.max(Number(S.deliveryRadiusKm)||20,1);
+  S.deliveryRadiusKm=Math.max(Number(S.deliveryRadiusKm)||10,1);
   S.radiusKm=Number(S.radiusKm)||3;
   S.useRoadRoute=S.useRoadRoute!==false;
   S.useTraffic=!!S.useTraffic;
@@ -455,7 +459,7 @@ function load(){
 function save(){
   const nextStart=$('start').value;
   if(nextStart!==S.start){S.startLat=null;S.startLon=null;S.streetCache=[];}
-  S.start=nextStart; S.city=$('city').value; S.defFee=parseFloat($('defFee').value)||0; S.avgSpeed=parseFloat($('avgSpeed').value)||22; S.stopMin=parseFloat($('stopMin').value)||4; S.deliveryRadiusKm=Math.max(parseFloat($('deliveryRadiusKm')?.value)||20,1); S.radiusKm=parseFloat($('radiusKm')?.value)||3; S.useRoadRoute=$('useRoadRoute')?.checked!==false; S.useTraffic=!!$('useTraffic')?.checked; S.pw=$('pw').value;
+  S.start=nextStart; S.city=$('city').value; S.defFee=parseFloat($('defFee').value)||0; S.avgSpeed=parseFloat($('avgSpeed').value)||22; S.stopMin=parseFloat($('stopMin').value)||4; S.deliveryRadiusKm=Math.max(parseFloat($('deliveryRadiusKm')?.value)||10,1); S.radiusKm=parseFloat($('radiusKm')?.value)||3; S.useRoadRoute=$('useRoadRoute')?.checked!==false; S.useTraffic=!!$('useTraffic')?.checked; S.pw=$('pw').value;
   try{localStorage.setItem('outfood_ops',JSON.stringify(S));}catch(e){}
   applyPW();
 }
@@ -864,13 +868,15 @@ function clearRadiusLayers(){
   radiusMarkers=[];
   radiusZoneLayers.forEach(l=>l.remove());
   radiusZoneLayers=[];
+  storeMapLayers.forEach(l=>l.remove());
+  storeMapLayers=[];
   if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
 }
 function renderRadiusLegend(){
   const el=$('radiusLegend');
   if(!el) return;
   if(!S.radiusZones.length){
-    el.innerHTML='<span><i style="background:#5b6770"></i>Sem raios criados</span>';
+    el.innerHTML=`<span><i style="background:#2E7D32;border:2px dashed #1F2933"></i>Raio loja ${deliveryRadiusKm().toFixed(0)} km</span><span><i style="background:#1F2933;border-radius:3px"></i>Restaurante</span><span><i style="background:#5b6770"></i>Sem raios de motoboy</span>`;
     return;
   }
   const items=S.radiusZones.map((z,i)=>{
@@ -878,6 +884,8 @@ function renderRadiusLegend(){
     const count=pendingMapDeliveries().filter(d=>d.lat!=null&&z.lat!=null&&haversine({lat:z.lat,lon:z.lon},d)<=Number(z.km||3)).length;
     return `<span><i style="background:${zoneColor(z)}"></i>Raio ${i+1}: ${esc(drv)} · ${Number(z.km||3).toFixed(1).replace('.',',')} km · ${count} pendente(s)</span>`;
   });
+  items.unshift('<span><i style="background:#1F2933;border-radius:3px"></i>Restaurante</span>');
+  items.unshift(`<span><i style="background:#2E7D32;border:2px dashed #1F2933"></i>Raio loja ${deliveryRadiusKm().toFixed(0)} km</span>`);
   items.push('<span><i style="background:#fff;border:2px solid #5b6770;border-radius:3px"></i>Bag na fila</span>');
   items.push('<span><i style="background:#5b6770;border-radius:3px"></i>Bag atribuida</span>');
   el.innerHTML=items.join('');
@@ -899,6 +907,42 @@ function zoneCenterIcon(color, idx, active){
     iconAnchor:[17,32],
     popupAnchor:[0,-30]
   });
+}
+function storeMarkerIcon(){
+  return L.divIcon({
+    className:'store-marker-wrap',
+    html:'<div class="store-icon">$</div>',
+    iconSize:[34,40],
+    iconAnchor:[17,34],
+    popupAnchor:[0,-32]
+  });
+}
+function drawStoreOverlay(){
+  if(!radiusMap) return;
+  storeMapLayers.forEach(l=>l.remove());
+  storeMapLayers=[];
+  const s=startPoint();
+  if(!s) return;
+  const km=deliveryRadiusKm();
+  const circle=L.circle([s.lat,s.lon],{
+    radius:km*1000,
+    color:'#1F2933',
+    weight:2,
+    dashArray:'8,6',
+    fillColor:'#2E7D32',
+    fillOpacity:.045
+  }).addTo(radiusMap).bindPopup(`Raio de atendimento da loja<br>${km.toFixed(0)} km`);
+  const marker=L.marker([s.lat,s.lon],{icon:storeMarkerIcon(),zIndexOffset:800})
+    .addTo(radiusMap)
+    .bindPopup(`Restaurante<br>${esc(S.start||'Ponto de partida')}<br>Raio de atendimento: ${km.toFixed(0)} km`);
+  storeMapLayers.push(circle,marker);
+}
+function fitMapToStoreRadius(){
+  const s=startPoint();
+  if(!radiusMap || !s) return;
+  const km=deliveryRadiusKm();
+  const circle=L.circle([s.lat,s.lon],{radius:km*1000});
+  radiusMap.fitBounds(circle.getBounds(),{padding:[28,28]});
 }
 function drawFallbackRoute(points,color){
   if(radiusRoute){radiusRoute.remove();radiusRoute=null;}
@@ -931,6 +975,7 @@ function drawRadiusMap(){
   const pending=pendingMapDeliveries();
   const queue=queueDeliveries();
   const counts=new Map();
+  drawStoreOverlay();
   S.radiusZones.forEach((z,i)=>{
     if(z.lat==null||z.lon==null)return;
     const color=zoneColor(z);
@@ -959,10 +1004,6 @@ function drawRadiusMap(){
     radiusZoneLayers.push(circle,marker);
     counts.set(z.id,0);
   });
-  if(startPoint()){
-    const s=startPoint();
-    radiusMarkers.push(L.circleMarker([s.lat,s.lon],{radius:7,color:'#1F2933',fillColor:'#1F2933',fillOpacity:1}).addTo(radiusMap).bindPopup('Loja'));
-  }
   const activeInside=[];
   pending.forEach(d=>{
     if(d.lat==null||d.lon==null) return;
@@ -972,7 +1013,7 @@ function drawRadiusMap(){
     if(inActive) activeInside.push(d);
     const assigned=!!d.driver;
     const color=inActive&&active?zoneColor(active):(containing[0]?zoneColor(containing[0]):'#5b6770');
-    const marker=L.marker([d.lat,d.lon],{icon:bagMarkerIcon(color,assigned)})
+    const marker=L.marker([d.lat,d.lon],{icon:bagMarkerIcon(color,assigned),zIndexOffset:500})
       .addTo(radiusMap)
       .bindPopup(`${esc(d.label||'Pedido')}<br>${esc(deliveryAddress(d))}<br>${assigned?'Motoboy: '+esc(driverName(d.driver)||'--'):'Fila da loja'}<br>${containing.length?containing.length+' raio(s)':'Fora dos raios'}`);
     radiusMarkers.push(marker);
@@ -1030,6 +1071,24 @@ async function useStoreAsRadiusCenter(){
     if(z){z.lat=g.lat;z.lon=g.lon;}
     save();render();await refreshRadiusMap();
   }finally{setBusy(false);}
+}
+async function centerMapOnStore(forceTen){
+  if(!S.start.trim()){alert('Defina o ponto de partida da loja.');return;}
+  setBusy(true);
+  setRadiusMsg('Centralizando mapa no restaurante...');
+  try{
+    if(forceTen){
+      S.deliveryRadiusKm=10;
+      if($('deliveryRadiusKm')) $('deliveryRadiusKm').value=10;
+    }
+    const g=startPoint()||await geocode(S.start);
+    if(!g){setRadiusMsg('Não localizei o restaurante. Confira o endereço da loja.', 'err');return;}
+    S.startLat=g.lat;S.startLon=g.lon;
+    save();renderDistrictOptions();renderStreetSuggestions();drawRadiusMap();fitMapToStoreRadius();
+    setRadiusMsg(`Mapa centralizado no restaurante com raio de atendimento de ${deliveryRadiusKm().toFixed(0)} km.`);
+  }finally{
+    setBusy(false);
+  }
 }
 async function assignRadiusToDriver(){
   syncActiveRadiusFromControlsSilent();
