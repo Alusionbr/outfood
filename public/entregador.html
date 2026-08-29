@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F2933">
+<title>Outfood — App do entregador</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏍️</text></svg>">
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  body{background:#EEF2EE}
+  .driver-app{max-width:560px;margin:0 auto;padding:12px 12px 90px}
+  .driver-top{background:var(--ink);color:#fff;padding:14px 16px;position:sticky;top:0;z-index:10}
+  .driver-top .spread{align-items:flex-start}
+  .driver-top h1{font-size:17px}
+  .driver-top .muted{color:#9BAAA1}
+  .stop{background:#fff;border:1px solid var(--border);border-left:5px solid var(--green);border-radius:12px;padding:13px;margin-bottom:11px}
+  .stop.done{opacity:.55;border-left-color:var(--ink-3)}
+  .stop .seq{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:var(--green);color:#fff;font-weight:700;font-size:13px}
+  .stop h3{font-size:15px;margin:0}
+  .stop .addr{font-size:14px;margin:6px 0}
+  .stop .acts{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+  .stop .acts .btn,.stop .acts button{flex:1;min-width:110px;justify-content:center}
+  .sticky-foot{position:fixed;left:0;right:0;bottom:0;background:#fff;border-top:1px solid var(--border);padding:10px 12px;display:flex;gap:8px;z-index:20}
+  .sticky-foot > *{flex:1}
+</style>
+</head>
+<body>
+<div id="app"><div class="loading" style="padding:50px">Carregando...</div></div>
+<div id="printArea"></div>
+<script src="/vendor/qrcode/qrcode.js" defer></script>
+<script type="module" src="/app/driver.js"></script>
+</body>
+</html>

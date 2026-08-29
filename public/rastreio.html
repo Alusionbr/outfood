@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#2E7D32">
+<title>Acompanhe seu pedido — Outfood</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📦</text></svg>">
+<link rel="stylesheet" href="/assets/styles.css">
+<style>
+  body{background:linear-gradient(160deg,#E8F3E9,#F4F7F4 40%)}
+  .track{max-width:560px;margin:0 auto;padding:22px 14px 60px}
+  .steps{display:flex;flex-direction:column;gap:0;margin:14px 0}
+  .step{display:flex;gap:12px;align-items:flex-start;padding-bottom:16px;position:relative}
+  .step:not(:last-child):before{content:"";position:absolute;left:15px;top:30px;bottom:0;width:2px;background:var(--border)}
+  .step.done:not(:last-child):before{background:var(--green)}
+  .step .bullet{width:32px;height:32px;border-radius:50%;display:grid;place-items:center;background:#E4EAE4;color:var(--ink-3);font-size:15px;flex:0 0 auto;z-index:1}
+  .step.done .bullet{background:var(--green);color:#fff}
+  .step.current .bullet{background:var(--orange);color:#fff;box-shadow:0 0 0 5px var(--orange-lt)}
+  .step b{display:block}
+  .stars{display:flex;gap:6px;font-size:30px;cursor:pointer;justify-content:center}
+  .stars span{filter:grayscale(1);opacity:.45;transition:.12s}
+  .stars span.on{filter:none;opacity:1;transform:scale(1.08)}
+</style>
+</head>
+<body>
+<div class="track" id="app"><div class="loading">Buscando seu pedido...</div></div>
+<script type="module" src="/app/track.js"></script>
+</body>
+</html>

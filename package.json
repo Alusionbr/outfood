@@ -1,0 +1,17 @@
+{
+  "name": "outfood",
+  "version": "2.0.0",
+  "private": true,
+  "description": "Sistema completo de gestão de pedidos e entregas para restaurantes",
+  "type": "module",
+  "engines": {
+    "node": ">=22.5.0"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server/index.js",
+    "dev": "node --disable-warning=ExperimentalWarning --watch server/index.js",
+    "seed": "node --disable-warning=ExperimentalWarning server/seed.js",
+    "reset": "node --disable-warning=ExperimentalWarning server/seed.js --reset",
+    "test": "node --disable-warning=ExperimentalWarning --test 'tests/*.test.js'"
+  }
+}
