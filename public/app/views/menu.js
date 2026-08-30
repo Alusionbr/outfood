@@ -1,6 +1,6 @@
 /** Cardápio: categorias, produtos, adicionais e controle simples de estoque. */
 import { api } from '../api.js';
-import { refreshReference } from '../store.js';
+import { can, refreshReference } from '../store.js';
 import { confirmDialog, emptyState, modal, notifyError, toast } from '../ui.js';
 import { esc, fromCents, money, toCents } from '../util.js';
 
@@ -10,11 +10,12 @@ export async function render(container) {
 
 async function draw(container) {
   const [menu, categories] = await Promise.all([api.menu(), api.get('/api/categories')]);
+  const canWrite = can('menu:create') || can('menu:update');
+  const canDelete = can('menu:delete');
   container.innerHTML = `
     <div class="row mb" style="justify-content:space-between">
       <div class="row tight">
-        <button id="newProduct">+ Novo produto</button>
-        <button class="btn-2" id="newCategory">+ Nova categoria</button>
+        ${can('menu:create') ? '<button id="newProduct">+ Novo produto</button><button class="btn-2" id="newCategory">+ Nova categoria</button>' : ''}
       </div>
       <span class="muted small">${menu.reduce((acc, c) => acc + c.products.length, 0)} produtos em ${categories.length} categorias</span>
     </div>
@@ -23,9 +24,9 @@ async function draw(container) {
         <header>
           <h3>${esc(category.name)}</h3>
           <span class="badge">${category.products.length} itens</span>
-          ${category.id ? `<div class="row tight" style="margin-left:auto">
-            <button class="btn-ghost btn-sm" data-editcat="${category.id}">Renomear</button>
-            <button class="btn-danger btn-sm" data-delcat="${category.id}">Excluir</button>
+          ${category.id && (canWrite || canDelete) ? `<div class="row tight" style="margin-left:auto">
+            ${canWrite ? `<button class="btn-ghost btn-sm" data-editcat="${category.id}">Renomear</button>` : ''}
+            ${canDelete ? `<button class="btn-danger btn-sm" data-delcat="${category.id}">Excluir</button>` : ''}
           </div>` : ''}
         </header>
         <div class="table-wrap">
@@ -40,8 +41,8 @@ async function draw(container) {
                 <td class="num">${p.stock_control ? `<span class="badge ${p.stock_qty > 0 ? 'green' : 'red'}">${p.stock_qty}</span>` : '—'}</td>
                 <td>${p.active ? '<span class="badge green">ativo</span>' : '<span class="badge gray">inativo</span>'}</td>
                 <td class="right nowrap">
-                  <button class="btn-ghost btn-sm" data-edit="${p.id}">Editar</button>
-                  <button class="btn-danger btn-sm" data-del="${p.id}">Excluir</button>
+                  ${canWrite ? `<button class="btn-ghost btn-sm" data-edit="${p.id}">Editar</button>` : ''}
+                  ${canDelete ? `<button class="btn-danger btn-sm" data-del="${p.id}">Excluir</button>` : ''}
                 </td>
               </tr>`).join('')}
             </tbody>
@@ -50,8 +51,8 @@ async function draw(container) {
       </div>`).join('') : emptyState('🍕', 'Cardápio vazio', 'Crie uma categoria e adicione seus produtos.')}`;
 
   const all = menu.flatMap((c) => c.products);
-  container.querySelector('#newProduct').onclick = () => productDialog(container, null, categories);
-  container.querySelector('#newCategory').onclick = () => categoryDialog(container, null);
+  container.querySelector('#newProduct')?.addEventListener('click', () => productDialog(container, null, categories));
+  container.querySelector('#newCategory')?.addEventListener('click', () => categoryDialog(container, null));
   container.querySelectorAll('[data-edit]').forEach((b) => {
     b.onclick = () => productDialog(container, all.find((p) => p.id === Number(b.dataset.edit)), categories);
   });

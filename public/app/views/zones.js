@@ -1,6 +1,6 @@
 /** Zonas de entrega: raio, taxa e entregador preferencial — arraste no mapa. */
 import { api } from '../api.js';
-import { refreshReference, state } from '../store.js';
+import { can, refreshReference, state } from '../store.js';
 import { confirmDialog, emptyState, modal, notifyError, toast } from '../ui.js';
 import { esc, fromCents, money, toCents } from '../util.js';
 
@@ -11,7 +11,7 @@ export async function render(container) {
   container.innerHTML = `
     <div class="grid cols-2" style="grid-template-columns:minmax(0,420px) minmax(0,1fr)">
       <div class="card">
-        <header><h3>Zonas</h3><button class="btn-sm" id="new" style="margin-left:auto">+ Nova zona</button></header>
+        <header><h3>Zonas</h3>${can('zones:create') ? '<button class="btn-sm" id="new" style="margin-left:auto">+ Nova zona</button>' : ''}</header>
         <div class="table-wrap" id="list"></div>
         <div class="body"><div class="hint">A taxa da zona é aplicada quando a política de taxa está em "por zona".
           Se o endereço cair em mais de uma zona, vale a de menor raio.</div></div>
@@ -21,7 +21,7 @@ export async function render(container) {
         <div class="body"><div id="map" class="map"></div></div>
       </div>
     </div>`;
-  container.querySelector('#new').onclick = () => dialog(container, null);
+  container.querySelector('#new')?.addEventListener('click', () => dialog(container, null));
   await draw(container);
 }
 
@@ -39,8 +39,8 @@ async function draw(container) {
       <td class="num strong">${money(z.fee_cents)}</td>
       <td class="small">${esc(drivers.find((d) => d.id === z.driver_id)?.name || '—')}</td>
       <td class="right nowrap">
-        <button class="btn-ghost btn-sm" data-edit="${z.id}">Editar</button>
-        <button class="btn-danger btn-sm" data-del="${z.id}">Excluir</button></td>
+        ${can('zones:update') ? `<button class="btn-ghost btn-sm" data-edit="${z.id}">Editar</button>` : ''}
+        ${can('zones:delete') ? `<button class="btn-danger btn-sm" data-del="${z.id}">Excluir</button>` : ''}</td>
     </tr>`).join('')}</tbody></table>` : emptyState('🗺️', 'Nenhuma zona cadastrada', 'Crie zonas para cobrar taxas diferentes por região.');
 
   container.querySelectorAll('[data-edit]').forEach((b) => {
@@ -76,7 +76,10 @@ function drawMap(container, zones) {
     const circle = L.circle([zone.lat, zone.lon], {
       radius: Number(zone.radius_km) * 1000, color: zone.color, fillColor: zone.color, fillOpacity: .1, weight: 2,
     }).addTo(map).bindPopup(`<b>${esc(zone.name)}</b><br>${zone.radius_km} km · ${money(zone.fee_cents)}`);
-    const marker = L.marker([zone.lat, zone.lon], { draggable: true, title: 'Arraste para mover a zona' }).addTo(map);
+    const canDrag = can('zones:update');
+    const marker = L.marker([zone.lat, zone.lon], {
+      draggable: canDrag, title: canDrag ? 'Arraste para mover a zona' : undefined,
+    }).addTo(map);
     marker.on('drag', (event) => circle.setLatLng(event.target.getLatLng()));
     marker.on('dragend', async (event) => {
       const point = event.target.getLatLng();

@@ -1,6 +1,6 @@
 /** Entregadores: cadastro, turno, comissão e fechamento do dia. */
 import { api } from '../api.js';
-import { refreshReference } from '../store.js';
+import { can, refreshReference } from '../store.js';
 import { confirmDialog, emptyState, modal, notifyError, toast } from '../ui.js';
 import { DRIVER_STATUS_META, esc, formatPhone, fromCents, money, toCents, todayISO } from '../util.js';
 
@@ -16,15 +16,18 @@ export async function render(container) {
 }
 
 async function draw(container) {
+  // A lista de usuários só serve para o formulário de criar/editar (vincular
+  // login de entregador); quem só lê não precisa dela nem tem acesso a /users.
   const [drivers, settlement, users] = await Promise.all([
     api.drivers(),
     api.get(`/api/drivers/settlement?day=${todayISO()}`),
-    api.get('/api/users').catch(() => []),
+    can('drivers:update') && can('users:read') ? api.get('/api/users').catch(() => []) : [],
   ]);
 
+  const canWrite = can('drivers:update');
   container.innerHTML = `
     <div class="row mb" style="justify-content:space-between">
-      <button id="new">+ Novo entregador</button>
+      ${can('drivers:create') ? '<button id="new">+ Novo entregador</button>' : '<span></span>'}
       <span class="muted small">${drivers.filter((d) => d.active).length} ativos</span>
     </div>
     <div class="card">
@@ -40,8 +43,8 @@ async function draw(container) {
             <td class="small">${esc(COMMISSION_LABELS[d.commission_type])}<div class="muted">${d.commission_type.startsWith('percentual') ? d.commission_value + '%' : money(d.commission_value)}</div></td>
             <td class="num">${d.today.delivered}/${d.today.orders}</td>
             <td class="right nowrap">
-              <button class="btn-ghost btn-sm" data-edit="${d.id}">Editar</button>
-              ${d.active ? `<button class="btn-danger btn-sm" data-off="${d.id}">Desativar</button>` : `<button class="btn-2 btn-sm" data-on="${d.id}">Reativar</button>`}
+              ${canWrite ? `<button class="btn-ghost btn-sm" data-edit="${d.id}">Editar</button>
+              ${d.active ? `<button class="btn-danger btn-sm" data-off="${d.id}">Desativar</button>` : `<button class="btn-2 btn-sm" data-on="${d.id}">Reativar</button>`}` : ''}
             </td>
           </tr>`).join('')}</tbody></table>` : emptyState('🏍️', 'Nenhum entregador cadastrado')}
       </div>
@@ -64,7 +67,7 @@ async function draw(container) {
       </div>
     </div>`;
 
-  container.querySelector('#new').onclick = () => dialog(container, null, users);
+  container.querySelector('#new')?.addEventListener('click', () => dialog(container, null, users));
   container.querySelectorAll('[data-edit]').forEach((b) => {
     b.onclick = () => dialog(container, drivers.find((d) => d.id === Number(b.dataset.edit)), users);
   });

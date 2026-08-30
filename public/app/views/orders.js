@@ -114,10 +114,12 @@ export async function openOrder(id, container) {
 
   const body = document.createElement('div');
   body.innerHTML = detail(order);
+  // Os botões precisam ser ligados antes do modal abrir: modal() só resolve
+  // quando a janela fecha, então ligar depois do await nunca reage a cliques.
+  bind(body, order, container);
 
   const actions = [{ label: 'Fechar', className: 'btn-ghost' }];
   await modal({ title: `Pedido ${order.code}`, body, wide: true, actions });
-  bind(body, order, container);
 }
 
 function detail(o) {
